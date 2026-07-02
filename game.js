@@ -5,7 +5,7 @@
     mapWidth: 40,
     mapHeight: 25,
     tileSize: 22,
-    maxFloors: 5,
+    maxFloors: 15,
     logLimit: 9,
     roomAttempts: 130,
     manaRegenEvery: 4,
@@ -500,13 +500,51 @@
       boss: true,
       weakTo: ["ice", "light"],
     },
+    mirrorArchmage: {
+      name: "Зеркальный архимаг",
+      glyph: "M",
+      color: "#9bdcff",
+      hp: 30,
+      damage: 3,
+      speed: 1,
+      range: 5,
+      ranged: true,
+      boss: true,
+      weakTo: ["shadow", "lightning"],
+    },
+    towerAvatar: {
+      name: "Сердце башни / Аватар башни",
+      glyph: "T",
+      color: "#ff6f9f",
+      hp: 40,
+      damage: 4,
+      speed: 1,
+      range: 4,
+      ranged: true,
+      boss: true,
+      weakTo: ["light", "arcane"],
+    },
   };
 
   const ACTS = [
     {
-      id: "lastMageTower",
-      name: "Last Mage Tower",
+      id: "stoneThreshold",
+      name: "Каменный порог",
       floorRange: [1, 5],
+      enemyPool: "tower",
+      artifactPool: "tower",
+    },
+    {
+      id: "mirrorHalls",
+      name: "Зеркальные залы",
+      floorRange: [6, 10],
+      enemyPool: "tower",
+      artifactPool: "tower",
+    },
+    {
+      id: "towerHeart",
+      name: "Сердце башни",
+      floorRange: [11, 15],
       enemyPool: "tower",
       artifactPool: "tower",
     },
@@ -531,7 +569,7 @@
       targetRooms: 9,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 7,
+      enemyCount: 5,
       minEnemyDistanceFromStart: 0,
       resourceCount: 2,
       artifactCount: 1,
@@ -545,7 +583,7 @@
       targetRooms: 10,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 9,
+      enemyCount: 5,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
@@ -559,7 +597,7 @@
       targetRooms: 11,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 11,
+      enemyCount: 6,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
@@ -583,10 +621,152 @@
       firstFloorBooks: false,
       stairs: false,
     },
+    6: {
+      targetRooms: 9,
+      maxRoomSize: 8,
+      maxRoomHeight: 7,
+      enemyCount: 6,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 2,
+      artifactCount: 1,
+      bonusArtifactChance: 0.25,
+      cursedArtifactChance: 0.35,
+      trapCount: 3,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    7: {
+      targetRooms: 10,
+      maxRoomSize: 8,
+      maxRoomHeight: 7,
+      enemyCount: 6,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 2,
+      artifactCount: 1,
+      bonusArtifactChance: 0.25,
+      cursedArtifactChance: 0.35,
+      trapCount: 3,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    8: {
+      targetRooms: 10,
+      maxRoomSize: 7,
+      maxRoomHeight: 6,
+      enemyCount: 7,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.4,
+      cursedArtifactChance: 0.45,
+      trapCount: 4,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    9: {
+      targetRooms: 11,
+      maxRoomSize: 7,
+      maxRoomHeight: 6,
+      enemyCount: 7,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.4,
+      cursedArtifactChance: 0.45,
+      trapCount: 4,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    10: {
+      targetRooms: 7,
+      maxRoomSize: 7,
+      maxRoomHeight: 6,
+      enemyCount: 0,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.5,
+      cursedArtifactChance: 0.45,
+      trapCount: 0,
+      firstFloorBooks: false,
+      stairs: false,
+    },
+    11: {
+      targetRooms: 10,
+      maxRoomSize: 8,
+      maxRoomHeight: 7,
+      enemyCount: 7,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.5,
+      cursedArtifactChance: 0.45,
+      trapCount: 4,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    12: {
+      targetRooms: 10,
+      maxRoomSize: 8,
+      maxRoomHeight: 7,
+      enemyCount: 7,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.5,
+      cursedArtifactChance: 0.45,
+      trapCount: 4,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    13: {
+      targetRooms: 11,
+      maxRoomSize: 7,
+      maxRoomHeight: 6,
+      enemyCount: 8,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.6,
+      cursedArtifactChance: 0.5,
+      trapCount: 5,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    14: {
+      targetRooms: 11,
+      maxRoomSize: 7,
+      maxRoomHeight: 6,
+      enemyCount: 8,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.6,
+      cursedArtifactChance: 0.5,
+      trapCount: 5,
+      firstFloorBooks: false,
+      stairs: true,
+    },
+    15: {
+      targetRooms: 7,
+      maxRoomSize: 7,
+      maxRoomHeight: 6,
+      enemyCount: 0,
+      minEnemyDistanceFromStart: 0,
+      resourceCount: 3,
+      artifactCount: 1,
+      bonusArtifactChance: 0.5,
+      cursedArtifactChance: 0.5,
+      trapCount: 0,
+      firstFloorBooks: false,
+      stairs: false,
+    },
   };
 
   const BOSSES_BY_FLOOR = {
     5: "boss",
+    10: "mirrorArchmage",
+    15: "towerAvatar",
   };
 
   const ENEMY_POOLS_BY_ACT = {
@@ -839,7 +1019,8 @@
     if (floor === 1) {
       addLog("Первый этаж башни складывается из камня и тени.");
     } else {
-      addLog(BOSSES_BY_FLOOR[floor] ? "Каменный архиголем пробуждается." : `Вы поднимаетесь на этаж ${floor}.`);
+      const bossType = BOSSES_BY_FLOOR[floor];
+      addLog(bossType ? `${ENEMY_TYPES[bossType].name} пробуждается.` : `Вы поднимаетесь на этаж ${floor}.`);
     }
     updateUI();
   }
@@ -1109,7 +1290,7 @@
 
   function createEnemy(type, x, y, floor) {
     const template = ENEMY_TYPES[type];
-    const scale = type === "boss" ? 0 : Math.max(0, floor - 1);
+    const scale = template.boss ? 0 : Math.max(0, floor - 1);
     return {
       id: nextId(),
       type,
@@ -1617,14 +1798,30 @@
     addEffect(enemy.x, enemy.y, element ? ELEMENT_COLORS[element] : "#ffffff", 6, String(amount));
     if (enemy.hp <= 0) {
       addLog(`${enemy.name} побежден.`);
-      if (enemy.boss) {
-        addLog("Башня спасена.");
-        setMode(MODES.VICTORY);
-      }
       state.enemies = state.enemies.filter((item) => item.id !== enemy.id);
+      if (enemy.boss) {
+        handleBossDefeat(enemy);
+      }
       return true;
     }
     return false;
+  }
+
+  function handleBossDefeat(enemy) {
+    if (state.floor >= CONFIG.maxFloors) {
+      addLog("Сердце башни разбито. Башня спасена.");
+      setMode(MODES.VICTORY);
+      return;
+    }
+
+    state.objects.push({
+      id: nextId(),
+      type: EVENT_TYPES.STAIRS,
+      x: enemy.x,
+      y: enemy.y,
+    });
+    updateVision();
+    addLog("После победы над стражем открывается переход выше.");
   }
 
   function damagePlayer(amount, message) {
@@ -1733,6 +1930,9 @@
   }
 
   function actBoss(enemy) {
+    if (enemy.type !== "boss") {
+      return;
+    }
     enemy.bossTimer += 1;
     if (enemy.bossTimer % 4 !== 0) {
       return;
@@ -2133,13 +2333,13 @@
       dom.overlayKicker.textContent = "Древняя башня ждет";
       dom.overlayTitle.textContent = "Башня последнего мага";
       dom.overlayText.textContent =
-        "Пройдите 5 процедурных этажей, найдите книги заклинаний и победите Каменного архиголема.";
+        "Пройдите 15 процедурных этажей, найдите книги заклинаний и победите Сердце башни. Каменный архиголем и Зеркальный архимаг ждут как испытания на 5 и 10 этажах.";
       dom.primaryAction.textContent = "Начать восхождение";
     } else if (state.mode === MODES.VICTORY) {
       dom.overlayKicker.textContent = "Победа";
       dom.overlayTitle.textContent = "Башня спасена";
       dom.overlayText.textContent =
-        "Каменный архиголем пал, древняя магия стихла. Нажмите R или кнопку, чтобы начать новую партию.";
+        "Сердце башни пало, древняя магия стихла. Нажмите R или кнопку, чтобы начать новую партию.";
       dom.primaryAction.textContent = "Новая игра";
     } else if (state.mode === MODES.GAME_OVER) {
       dom.overlayKicker.textContent = "Поражение";
