@@ -63,6 +63,18 @@
     arcane: "#9a8cff",
   };
 
+  const ELEMENT_NAMES = {
+    fire: "огню",
+    ice: "льду",
+    poison: "яду",
+    lightning: "молнии",
+    light: "свету",
+    shadow: "тьме",
+    earth: "земле",
+    wind: "ветру",
+    arcane: "магии",
+  };
+
   const SPELLS = {
     fireball: {
       id: "fireball",
@@ -483,10 +495,12 @@
       name: "Малый голем",
       glyph: "g",
       color: "#a18d72",
-      hp: 6,
-      damage: 2,
+      hp: 3,
+      damage: 1,
       speed: 2,
       range: 1,
+      summoned: true,
+      minion: true,
       weakTo: ["ice", "shadow"],
     },
     boss: {
@@ -499,6 +513,7 @@
       range: 1,
       boss: true,
       weakTo: ["ice", "light"],
+      attackText: "Каменный архиголем обрушивает тяжелый кулак.",
     },
     mirrorArchmage: {
       name: "Зеркальный архимаг",
@@ -511,6 +526,22 @@
       ranged: true,
       boss: true,
       weakTo: ["shadow", "lightning"],
+      attackText: "Зеркальный архимаг выпускает преломленный луч.",
+    },
+    mirrorIllusion: {
+      name: "Зеркальная иллюзия",
+      glyph: "i",
+      color: "#c9f5ff",
+      hp: 2,
+      damage: 1,
+      speed: 1,
+      range: 4,
+      ranged: true,
+      summoned: true,
+      minion: true,
+      illusion: true,
+      attackText: "Зеркальная иллюзия сбивает фокус слабой вспышкой.",
+      defeatText: "Зеркальная иллюзия рассыпается.",
     },
     towerAvatar: {
       name: "Сердце башни / Аватар башни",
@@ -523,6 +554,20 @@
       ranged: true,
       boss: true,
       weakTo: ["light", "arcane"],
+      attackText: "Аватар башни сжимает пространство вокруг мага.",
+    },
+    towerShard: {
+      name: "Осколок башни",
+      glyph: "◆",
+      color: "#ff9ec2",
+      hp: 6,
+      damage: 0,
+      speed: 1,
+      range: 0,
+      summoned: true,
+      object: true,
+      weakTo: ["light", "arcane"],
+      defeatText: "Осколок башни расколот.",
     },
   };
 
@@ -767,6 +812,41 @@
     5: "boss",
     10: "mirrorArchmage",
     15: "towerAvatar",
+  };
+
+  const BOSS_RULES = {
+    stoneArchgolem: {
+      specialEvery: 4,
+      maxSmallGolems: 2,
+      summonChance: 0.55,
+      runeTurns: 4,
+      attackBoost: 1,
+      minSummonDistanceFromPlayer: 2,
+    },
+    mirrorArchmage: {
+      specialEvery: 4,
+      maxIllusions: 1,
+      illusionTurns: 4,
+      attackBoost: 1,
+      resistTurns: 4,
+      resistReduction: 0.5,
+      minResistedDamage: 1,
+      minSummonDistanceFromPlayer: 2,
+    },
+    towerAvatar: {
+      specialEvery: 3,
+      phase3Every: 2,
+      phase2Threshold: 0.66,
+      phase3Threshold: 0.33,
+      maxShards: 1,
+      shardCooldown: 5,
+      shardDamageBonus: 1,
+      shardPulseEvery: 3,
+      shardHp: 6,
+      hazardTurns: 4,
+      attackBoost: 1,
+      minShardDistanceFromPlayer: 2,
+    },
   };
 
   const ENEMY_POOLS_BY_ACT = {
@@ -1288,9 +1368,12 @@
     return null;
   }
 
-  function createEnemy(type, x, y, floor) {
+  function createEnemy(type, x, y, floor, overrides = {}) {
     const template = ENEMY_TYPES[type];
-    const scale = template.boss ? 0 : Math.max(0, floor - 1);
+    const fixedPower = template.boss || template.summoned || template.illusion || template.object;
+    const scale = fixedPower ? 0 : Math.max(0, floor - 1);
+    const hp = overrides.hp ?? template.hp + scale;
+    const damage = overrides.damage ?? template.damage + Math.floor(scale / 2);
     return {
       id: nextId(),
       type,
@@ -1299,13 +1382,26 @@
       color: template.color,
       x,
       y,
-      hp: template.hp + scale,
-      maxHp: template.hp + scale,
-      damage: template.damage + Math.floor(scale / 2),
+      hp,
+      maxHp: overrides.maxHp ?? hp,
+      damage,
       speed: template.speed,
       range: template.range,
       ranged: Boolean(template.ranged),
       boss: Boolean(template.boss),
+      summoned: Boolean(template.summoned),
+      minion: Boolean(template.minion),
+      illusion: Boolean(template.illusion),
+      object: Boolean(template.object),
+      summonerId: null,
+      lifetime: template.lifetime || 0,
+      phase: 0,
+      nextAttackBonus: 0,
+      resistElement: null,
+      resistTurns: 0,
+      shardCooldown: 0,
+      attackText: template.attackText || "",
+      defeatText: template.defeatText || "",
       weakTo: template.weakTo || [],
       tags: template.tags || [],
       slow: 0,
@@ -1313,6 +1409,7 @@
       poison: 0,
       skipCounter: 0,
       bossTimer: 0,
+      ...overrides,
     };
   }
 
@@ -1414,6 +1511,76 @@
 
   function isFreeCell(x, y) {
     return isWalkable(x, y) && !enemyAt(x, y) && !objectAt(x, y) && !(state.player && state.player.x === x && state.player.y === y);
+  }
+
+  function getActiveSummonsForBoss(boss, filter = () => true) {
+    return state.enemies.filter((enemy) =>
+      enemy.hp > 0 &&
+      enemy.summoned &&
+      enemy.summonerId === boss.id &&
+      filter(enemy)
+    );
+  }
+
+  function canBossSummon(boss, filter, limit) {
+    return getActiveSummonsForBoss(boss, filter).length < limit;
+  }
+
+  function sameCell(a, b) {
+    return Boolean(a && b && a.x === b.x && a.y === b.y);
+  }
+
+  function wouldLeavePlayerEscape(candidateCell = null, movingEnemy = null) {
+    if (!state.player) {
+      return false;
+    }
+    const exits = getAdjacentCells(state.player.x, state.player.y).filter((cell) => {
+      if (!isWalkable(cell.x, cell.y)) {
+        return false;
+      }
+      if (sameCell(cell, candidateCell)) {
+        return false;
+      }
+      const occupant = enemyAt(cell.x, cell.y);
+      return !occupant || occupant.id === movingEnemy?.id;
+    });
+    return exits.length === 0;
+  }
+
+  function cellsWithinDistance(center, maxDistance) {
+    const cells = [];
+    for (let y = center.y - maxDistance; y <= center.y + maxDistance; y += 1) {
+      for (let x = center.x - maxDistance; x <= center.x + maxDistance; x += 1) {
+        const cell = { x, y };
+        if (isInside(x, y) && distance(cell, center) > 0 && distance(cell, center) <= maxDistance) {
+          cells.push(cell);
+        }
+      }
+    }
+    return cells;
+  }
+
+  function findSafeBossSpawnCell(boss, options = {}) {
+    const maxDistance = options.maxDistance || 3;
+    const minPlayerDistance = options.minPlayerDistance || 1;
+    const centers = options.includePlayerSide ? [boss, state.player] : [boss];
+    const candidates = [];
+
+    centers.forEach((center) => {
+      cellsWithinDistance(center, maxDistance).forEach((cell) => {
+        if (candidates.some((existing) => sameCell(existing, cell))) {
+          return;
+        }
+        candidates.push(cell);
+      });
+    });
+
+    const safe = candidates.filter((cell) =>
+      isFreeCell(cell.x, cell.y) &&
+      distance(cell, state.player) >= minPlayerDistance &&
+      !wouldLeavePlayerEscape(cell)
+    );
+    return safe.length ? sample(safe) : null;
   }
 
   function handleKeyDown(event) {
@@ -1792,22 +1959,66 @@
       .sort((a, b) => distance(a, state.player) - distance(b, state.player))[0] || null;
   }
 
+  function adjustEnemyDamage(enemy, amount, element) {
+    const rules = BOSS_RULES.mirrorArchmage;
+    if (
+      enemy.type === "mirrorArchmage" &&
+      element &&
+      enemy.resistElement === element &&
+      enemy.resistTurns > 0
+    ) {
+      const reduced = Math.max(rules.minResistedDamage, Math.ceil(amount * (1 - rules.resistReduction)));
+      if (reduced < amount) {
+        addLog(`Зеркальный архимаг сопротивляется ${ELEMENT_NAMES[element] || "стихии"}.`);
+      }
+      return reduced;
+    }
+    return amount;
+  }
+
+  function refreshMirrorResistance(enemy, element) {
+    if (enemy.type !== "mirrorArchmage" || !element || enemy.hp <= 0) {
+      return;
+    }
+    const shouldLog = enemy.resistElement !== element || enemy.resistTurns <= 0;
+    enemy.resistElement = element;
+    enemy.resistTurns = BOSS_RULES.mirrorArchmage.resistTurns;
+    if (shouldLog) {
+      addLog(`Зеркальный архимаг подстроился к ${ELEMENT_NAMES[element] || "стихии"}.`);
+    }
+  }
+
+  function removeEnemy(enemy) {
+    state.enemies = state.enemies.filter((item) => item.id !== enemy.id);
+  }
+
+  function clearBossSummons(boss) {
+    state.enemies = state.enemies.filter((enemy) => enemy.summonerId !== boss.id);
+    state.hazards = state.hazards.filter((hazard) => hazard.summonerId !== boss.id);
+  }
+
   function damageEnemy(enemy, amount, source, element = null) {
-    enemy.hp -= amount;
-    addLog(`${enemy.name} получает ${amount} урона (${source}).`);
-    addEffect(enemy.x, enemy.y, element ? ELEMENT_COLORS[element] : "#ffffff", 6, String(amount));
+    const finalAmount = adjustEnemyDamage(enemy, amount, element);
+    enemy.hp -= finalAmount;
+    addLog(`${enemy.name} получает ${finalAmount} урона (${source}).`);
+    addEffect(enemy.x, enemy.y, element ? ELEMENT_COLORS[element] : "#ffffff", 6, String(finalAmount));
+    if (enemy.illusion && finalAmount > 0 && enemy.hp > 0) {
+      enemy.hp = 0;
+    }
     if (enemy.hp <= 0) {
-      addLog(`${enemy.name} побежден.`);
-      state.enemies = state.enemies.filter((item) => item.id !== enemy.id);
+      addLog(enemy.defeatText || `${enemy.name} побежден.`);
+      removeEnemy(enemy);
       if (enemy.boss) {
         handleBossDefeat(enemy);
       }
       return true;
     }
+    refreshMirrorResistance(enemy, element);
     return false;
   }
 
   function handleBossDefeat(enemy) {
+    clearBossSummons(enemy);
     if (state.floor >= CONFIG.maxFloors) {
       addLog("Сердце башни разбито. Башня спасена.");
       setMode(MODES.VICTORY);
@@ -1885,13 +2096,33 @@
     state.hazards = state.hazards.filter((hazard) => hazard.turns > 0);
 
     [...state.enemies].forEach((enemy) => {
+      if (!state.enemies.includes(enemy)) {
+        return;
+      }
+      if (enemy.lifetime > 0) {
+        enemy.lifetime -= 1;
+        if (enemy.lifetime <= 0) {
+          addLog(enemy.defeatText || `${enemy.name} исчезает.`);
+          removeEnemy(enemy);
+          return;
+        }
+      }
+      if (enemy.resistTurns > 0) {
+        enemy.resistTurns -= 1;
+      }
       if (enemy.burn > 0) {
         enemy.burn -= 1;
         damageEnemy(enemy, 1, "горение", "fire");
       }
+      if (!state.enemies.includes(enemy)) {
+        return;
+      }
       if (enemy.poison > 0) {
         enemy.poison -= 1;
         damageEnemy(enemy, 1, "яд", "poison");
+      }
+      if (!state.enemies.includes(enemy)) {
+        return;
       }
       if (enemy.slow > 0) {
         enemy.slow -= 1;
@@ -1916,45 +2147,210 @@
       return;
     }
 
+    if (enemy.object) {
+      actBossObject(enemy);
+      return;
+    }
+
     if (enemy.boss) {
       actBoss(enemy);
     }
 
     const dist = distance(enemy, state.player);
     if (dist <= enemy.range && hasLineOfSight(enemy, state.player, enemy.range)) {
-      const attackText = enemy.ranged ? `${enemy.name} швыряет проклятую страницу.` : `${enemy.name} атакует.`;
-      damagePlayer(enemy.damage, attackText);
+      damagePlayer(enemyAttackDamage(enemy), enemyAttackText(enemy));
       return;
     }
     moveEnemyTowardPlayer(enemy);
   }
 
   function actBoss(enemy) {
-    if (enemy.type !== "boss") {
+    if (enemy.type === "boss") {
+      actStoneArchgolem(enemy);
+    } else if (enemy.type === "mirrorArchmage") {
+      actMirrorArchmage(enemy);
+    } else if (enemy.type === "towerAvatar") {
+      actTowerAvatar(enemy);
+    }
+  }
+
+  function actStoneArchgolem(boss) {
+    const rules = BOSS_RULES.stoneArchgolem;
+    boss.bossTimer += 1;
+    if (boss.bossTimer % rules.specialEvery !== 0) {
+      return;
+    }
+
+    const canSummon = canBossSummon(boss, (enemy) => enemy.type === "smallGolem", rules.maxSmallGolems);
+    if (canSummon && Math.random() < rules.summonChance) {
+      const spot = findSafeBossSpawnCell(boss, {
+        maxDistance: 3,
+        minPlayerDistance: rules.minSummonDistanceFromPlayer,
+      });
+      if (spot) {
+        state.enemies.push(createEnemy("smallGolem", spot.x, spot.y, state.floor, {
+          summonerId: boss.id,
+          summoned: true,
+          minion: true,
+        }));
+        addLog("Архиголем призывает малого голема.");
+        return;
+      }
+    }
+
+    if (Math.random() < 0.6) {
+      placeBossDangerCell(boss, rules.runeTurns, "Архиголем выбивает в камне опасную руну.");
+    } else {
+      boss.nextAttackBonus = Math.max(boss.nextAttackBonus, rules.attackBoost);
+      addLog("Архиголем собирает силу для следующего удара.");
+    }
+  }
+
+  function actMirrorArchmage(boss) {
+    const rules = BOSS_RULES.mirrorArchmage;
+    boss.bossTimer += 1;
+    if (boss.bossTimer % rules.specialEvery !== 0) {
+      return;
+    }
+
+    if (canBossSummon(boss, (enemy) => enemy.illusion, rules.maxIllusions)) {
+      const spot = findSafeBossSpawnCell(boss, {
+        maxDistance: 3,
+        minPlayerDistance: rules.minSummonDistanceFromPlayer,
+      });
+      if (spot) {
+        state.enemies.push(createEnemy("mirrorIllusion", spot.x, spot.y, state.floor, {
+          summonerId: boss.id,
+          lifetime: rules.illusionTurns,
+        }));
+        addLog("Зеркальный архимаг создает хрупкую иллюзию.");
+        return;
+      }
+    }
+
+    boss.nextAttackBonus = Math.max(boss.nextAttackBonus, rules.attackBoost);
+    addLog("Зеркальный архимаг складывает свет в усиленный луч.");
+  }
+
+  function actTowerAvatar(boss) {
+    const rules = BOSS_RULES.towerAvatar;
+    boss.bossTimer += 1;
+    boss.shardCooldown = Math.max(0, boss.shardCooldown - 1);
+
+    const phase = updateTowerAvatarPhase(boss);
+    const actionEvery = phase === 3 ? rules.phase3Every : rules.specialEvery;
+    if (phase === 1 || boss.bossTimer % actionEvery !== 0) {
+      return;
+    }
+
+    if (phase === 2) {
+      if (Math.random() < 0.35 && tryCreateTowerShard(boss)) {
+        return;
+      }
+      placeBossDangerCell(boss, rules.hazardTurns, "Аватар башни зажигает опасные клетки.");
+      return;
+    }
+
+    const roll = Math.random();
+    if (roll < 0.4 && tryCreateTowerShard(boss)) {
+      return;
+    }
+    if (roll < 0.75) {
+      placeBossDangerCell(boss, rules.hazardTurns, "Сердце башни меняет узор пола опасными клетками.");
+    } else {
+      boss.nextAttackBonus = Math.max(boss.nextAttackBonus, rules.attackBoost);
+      addLog("Аватар башни усиливает следующую атаку.");
+    }
+  }
+
+  function actBossObject(enemy) {
+    if (enemy.type !== "towerShard") {
       return;
     }
     enemy.bossTimer += 1;
-    if (enemy.bossTimer % 4 !== 0) {
+    if (enemy.bossTimer % BOSS_RULES.towerAvatar.shardPulseEvery !== 0) {
       return;
     }
-    if (Math.random() < 0.55) {
-      const spot = randomAdjacentFreeCell(enemy.x, enemy.y) || randomAdjacentFreeCell(state.player.x, state.player.y);
-      if (spot) {
-        state.enemies.push(createEnemy("smallGolem", spot.x, spot.y, state.floor));
-        addLog("Архиголем призывает малого голема.");
+    placeBossDangerCell(enemy, BOSS_RULES.towerAvatar.hazardTurns, "Осколок башни искажает пол опасной клеткой.");
+  }
+
+  function updateTowerAvatarPhase(boss) {
+    const rules = BOSS_RULES.towerAvatar;
+    const hpRatio = boss.hp / boss.maxHp;
+    const nextPhase = hpRatio <= rules.phase3Threshold ? 3 : hpRatio <= rules.phase2Threshold ? 2 : 1;
+    if (boss.phase !== nextPhase) {
+      boss.phase = nextPhase;
+      if (nextPhase === 2) {
+        addLog("Аватар башни переходит во вторую фазу: пол становится опасным.");
+      } else if (nextPhase === 3) {
+        addLog("Сердце башни раскрывается: финальная фаза ускоряет атаки.");
       }
-    } else {
-      const spot = randomAdjacentFreeCell(state.player.x, state.player.y) || { x: state.player.x, y: state.player.y };
-      state.hazards.push({
-        id: nextId(),
-        type: "danger",
-        x: spot.x,
-        y: spot.y,
-        radius: 0,
-        turns: 4,
-      });
-      addLog("Архиголем раскалывает камень опасной руной.");
     }
+    return boss.phase;
+  }
+
+  function tryCreateTowerShard(boss) {
+    const rules = BOSS_RULES.towerAvatar;
+    const canCreate =
+      boss.shardCooldown <= 0 &&
+      canBossSummon(boss, (enemy) => enemy.type === "towerShard", rules.maxShards);
+    if (!canCreate) {
+      return false;
+    }
+
+    const spot = findSafeBossSpawnCell(boss, {
+      maxDistance: 4,
+      minPlayerDistance: rules.minShardDistanceFromPlayer,
+    });
+    if (!spot) {
+      return false;
+    }
+
+    state.enemies.push(createEnemy("towerShard", spot.x, spot.y, state.floor, {
+      hp: rules.shardHp,
+      maxHp: rules.shardHp,
+      summonerId: boss.id,
+      summoned: true,
+      object: true,
+    }));
+    boss.shardCooldown = rules.shardCooldown;
+    addLog("Аватар башни создает Осколок башни: пока он цел, атаки сильнее.");
+    return true;
+  }
+
+  function placeBossDangerCell(source, turns, message) {
+    const candidates = getAdjacentCells(state.player.x, state.player.y)
+      .filter((cell) => isWalkable(cell.x, cell.y) && !enemyAt(cell.x, cell.y));
+    const spot = candidates.length ? sample(candidates) : { x: state.player.x, y: state.player.y };
+    state.hazards.push({
+      id: nextId(),
+      type: "danger",
+      x: spot.x,
+      y: spot.y,
+      radius: 0,
+      turns,
+      summonerId: source.summonerId || source.id,
+    });
+    addLog(message);
+  }
+
+  function enemyAttackText(enemy) {
+    if (enemy.attackText) {
+      return enemy.attackText;
+    }
+    return enemy.ranged ? `${enemy.name} швыряет проклятую страницу.` : `${enemy.name} атакует.`;
+  }
+
+  function enemyAttackDamage(enemy) {
+    let amount = enemy.damage + (enemy.nextAttackBonus || 0);
+    if (
+      enemy.type === "towerAvatar" &&
+      getActiveSummonsForBoss(enemy, (summon) => summon.type === "towerShard").length > 0
+    ) {
+      amount += BOSS_RULES.towerAvatar.shardDamageBonus;
+    }
+    enemy.nextAttackBonus = 0;
+    return amount;
   }
 
   function moveEnemyTowardPlayer(enemy) {
@@ -1968,7 +2364,8 @@
     const next = options.find((cell) =>
       isWalkable(cell.x, cell.y) &&
       !enemyAt(cell.x, cell.y) &&
-      !(state.player.x === cell.x && state.player.y === cell.y)
+      !(state.player.x === cell.x && state.player.y === cell.y) &&
+      (!(enemy.summoned || enemy.minion || enemy.illusion) || !wouldLeavePlayerEscape(cell, enemy))
     );
     if (next) {
       enemy.x = next.x;
@@ -2157,16 +2554,20 @@
       }
       const cx = enemy.x * size + size / 2;
       const cy = enemy.y * size + size / 2;
+      ctx.globalAlpha = enemy.illusion ? 0.55 : 1;
       ctx.fillStyle = enemy.color;
       if (enemy.boss) {
         ctx.fillRect(enemy.x * size + 3, enemy.y * size + 3, size - 6, size - 6);
         drawGlyph(cx, cy + 1, enemy.glyph, "#1a1410", 16);
+      } else if (enemy.object) {
+        drawGlyph(cx, cy, enemy.glyph, enemy.color, 18);
       } else {
         ctx.beginPath();
         ctx.arc(cx, cy, size * 0.34, 0, Math.PI * 2);
         ctx.fill();
         drawGlyph(cx, cy + 1, enemy.glyph, "#12151b", 13);
       }
+      ctx.globalAlpha = 1;
       const barWidth = size - 4;
       ctx.fillStyle = "#151515";
       ctx.fillRect(enemy.x * size + 2, enemy.y * size + 1, barWidth, 3);
