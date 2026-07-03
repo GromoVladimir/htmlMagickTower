@@ -232,6 +232,7 @@ canvas {
 
 .compact-stats {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
   margin-top: 10px;
@@ -328,9 +329,16 @@ canvas {
   box-shadow: inset 0 0 0 1px rgba(240, 200, 109, 0.22);
 }
 
+.spell-card.is-upgrade-mode.can-upgrade {
+  border-color: #6fe058;
+  box-shadow: inset 0 0 0 1px rgba(111, 224, 88, 0.24);
+}
+
 .spell-title {
   display: flex;
   justify-content: space-between;
+  align-items: start;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 4px;
   font-weight: 800;
@@ -340,10 +348,46 @@ canvas {
   min-width: 0;
 }
 
+.spell-badges {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.spell-level {
+  color: #f8df9a;
+}
+
 .spell-meta {
   color: #b5bfca;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.spell-upgrade {
+  margin-top: 5px;
+  color: #d8cfb5;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.spell-upgrade-status {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.spell-upgrade-status.is-ready {
+  color: #8df57a;
+}
+
+.spell-upgrade-status.is-locked {
+  color: #c0a9a2;
+}
+
+.spell-upgrade-status.is-max {
+  color: #9fa9b8;
 }
 
 .log-panel {

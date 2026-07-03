@@ -80,6 +80,7 @@
       id: "fireball",
       name: "Огненный шар",
       element: "fire",
+      level: 1,
       cost: 2,
       baseDamage: 3,
       range: 9,
@@ -89,6 +90,7 @@
       id: "iceShard",
       name: "Ледяная стрела",
       element: "ice",
+      level: 1,
       cost: 2,
       baseDamage: 2,
       range: 8,
@@ -98,6 +100,7 @@
       id: "poisonCloud",
       name: "Ядовитое облако",
       element: "poison",
+      level: 1,
       cost: 3,
       baseDamage: 1,
       range: 6,
@@ -107,6 +110,7 @@
       id: "chainLightning",
       name: "Цепная молния",
       element: "lightning",
+      level: 1,
       cost: 3,
       baseDamage: 3,
       range: 7,
@@ -116,6 +120,7 @@
       id: "dawnRay",
       name: "Луч рассвета",
       element: "light",
+      level: 1,
       cost: 2,
       baseDamage: 2,
       range: 8,
@@ -125,6 +130,7 @@
       id: "shadowSpike",
       name: "Теневой шип",
       element: "shadow",
+      level: 1,
       cost: 2,
       baseDamage: 2,
       range: 7,
@@ -134,6 +140,7 @@
       id: "stoneArmor",
       name: "Каменная броня",
       element: "earth",
+      level: 1,
       cost: 3,
       baseDamage: 0,
       range: 0,
@@ -143,6 +150,7 @@
       id: "windGust",
       name: "Порыв ветра",
       element: "wind",
+      level: 1,
       cost: 2,
       baseDamage: 1,
       range: 4,
@@ -152,10 +160,53 @@
       id: "magicMissile",
       name: "Магическая стрела",
       element: "arcane",
+      level: 1,
       cost: 1,
       baseDamage: 2,
       range: 8,
       description: "Дешевая стабильная атака.",
+    },
+  };
+
+  const MAX_SPELL_LEVEL = 3;
+  const SPELL_UPGRADE_COST = 1;
+
+  const SPELL_UPGRADES = {
+    fireball: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "горение длится 3 хода", burnTurns: 3 },
+    },
+    iceShard: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "замедление длится 3-4 хода", slowMin: 3, slowMax: 4 },
+    },
+    poisonCloud: {
+      2: { cost: SPELL_UPGRADE_COST, text: "облако держится на 1 ход дольше", hazardTurnsBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "ядовитое облако наносит 2 урона", hazardDamage: 2 },
+    },
+    chainLightning: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "молния делает еще один скачок", chainJumps: 2 },
+    },
+    dawnRay: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон и +1 лечение", damageBonus: 1, healBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "бонус против нежити становится +4", undeadBonus: 4 },
+    },
+    shadowSpike: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "добивание раненых целей сильнее", woundedBonus: 2 },
+    },
+    stoneArmor: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+2 щита", shieldBonus: 2 },
+      3: { cost: SPELL_UPGRADE_COST, text: "еще +2 щита", shieldBonus: 2 },
+    },
+    windGust: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "столкновение наносит 1 урон", collisionDamage: 1 },
+    },
+    magicMissile: {
+      2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
+      3: { cost: SPELL_UPGRADE_COST, text: "еще +1 урон", damageBonus: 1 },
     },
   };
 
@@ -875,6 +926,19 @@
     elementalTraitBooks: ELEMENT_TRAIT_BOOK,
   };
 
+  const MAGIC_SHARD_REWARDS = {
+    floors: {
+      3: "Этаж 3 раскрывает тайный осколок магии.",
+      7: "Этаж 7 отдает спрятанный осколок магии.",
+      9: "Этаж 9 вспыхивает найденным осколком магии.",
+      12: "Этаж 12 дарит редкий осколок магии.",
+    },
+    bosses: {
+      5: "После победы над стражем остается осколок магии.",
+      10: "Побежденный босс оставляет осколок магии.",
+    },
+  };
+
   const EVENT_TYPES = {
     STAIRS: "stairs",
     BOOK: "book",
@@ -892,6 +956,7 @@
     manaText: document.getElementById("manaText"),
     manaFill: document.getElementById("manaFill"),
     shieldText: document.getElementById("shieldText"),
+    magicShardsText: document.getElementById("magicShardsText"),
     turnText: document.getElementById("turnText"),
     traitName: document.getElementById("traitName"),
     traitEffect: document.getElementById("traitEffect"),
@@ -924,6 +989,7 @@
     logs: [],
     turn: 0,
     selectedSpellIndex: 0,
+    upgradeMode: false,
     idCounter: 1,
     lastMoveDir: { x: 1, y: 0 },
   };
@@ -967,6 +1033,62 @@
 
   function spellCost(spell) {
     return Math.max(0, spell.cost + (state.player?.spellCostModifier || 0));
+  }
+
+  function spellLevel(spellId) {
+    if (!state.player) {
+      return SPELLS[spellId]?.level || 1;
+    }
+    return state.player.spellLevels[spellId] || SPELLS[spellId]?.level || 1;
+  }
+
+  function nextSpellUpgrade(spellId) {
+    const nextLevel = spellLevel(spellId) + 1;
+    return SPELL_UPGRADES[spellId]?.[nextLevel] || null;
+  }
+
+  function spellUpgradeTotal(spellId, key) {
+    const upgrades = SPELL_UPGRADES[spellId] || {};
+    let total = 0;
+    for (let level = 2; level <= spellLevel(spellId); level += 1) {
+      total += upgrades[level]?.[key] || 0;
+    }
+    return total;
+  }
+
+  function spellUpgradeOverride(spellId, key, fallback) {
+    const upgrades = SPELL_UPGRADES[spellId] || {};
+    let value = fallback;
+    for (let level = 2; level <= spellLevel(spellId); level += 1) {
+      if (Object.prototype.hasOwnProperty.call(upgrades[level] || {}, key)) {
+        value = upgrades[level][key];
+      }
+    }
+    return value;
+  }
+
+  function grantMagicShardReward(key, message) {
+    if (!state.player || state.player.claimedMagicShardRewards[key]) {
+      return false;
+    }
+    state.player.claimedMagicShardRewards[key] = true;
+    state.player.magicShards += 1;
+    addLog(`${message} +1 осколок магии.`);
+    return true;
+  }
+
+  function grantFloorMagicShardReward(floor) {
+    const message = MAGIC_SHARD_REWARDS.floors[floor];
+    if (message) {
+      grantMagicShardReward(`floor:${floor}`, message);
+    }
+  }
+
+  function grantBossMagicShardReward(floor) {
+    const message = MAGIC_SHARD_REWARDS.bosses[floor];
+    if (message) {
+      grantMagicShardReward(`boss:${floor}`, message);
+    }
   }
 
   function createFlagMap(value = false) {
@@ -1017,6 +1139,9 @@
 
   function setMode(mode) {
     state.mode = mode;
+    if (mode !== MODES.PLAYING) {
+      state.upgradeMode = false;
+    }
     updateOverlay();
     updateUI();
   }
@@ -1032,6 +1157,9 @@
       shield: 0,
       staffDamage: CONFIG.basePlayer.staffDamage,
       spells: ["fireball"],
+      spellLevels: { fireball: 1 },
+      magicShards: 0,
+      claimedMagicShardRewards: {},
       selectedSpell: 0,
       flatSpellBonus: 0,
       spellDamageMultiplier: 1,
@@ -1065,6 +1193,7 @@
     state.visible = [];
     state.explored = [];
     state.selectedSpellIndex = 0;
+    state.upgradeMode = false;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
 
@@ -1102,6 +1231,7 @@
       const bossType = BOSSES_BY_FLOOR[floor];
       addLog(bossType ? `${ENEMY_TYPES[bossType].name} пробуждается.` : `Вы поднимаетесь на этаж ${floor}.`);
     }
+    grantFloorMagicShardReward(floor);
     updateUI();
   }
 
@@ -1583,6 +1713,43 @@
     return safe.length ? sample(safe) : null;
   }
 
+  function toggleUpgradeMode() {
+    state.upgradeMode = !state.upgradeMode;
+    addLog(state.upgradeMode
+      ? "Режим улучшений: нажмите 1-3, чтобы усилить заклинание."
+      : "Режим улучшений закрыт.");
+  }
+
+  function upgradeSpellInSlot(index) {
+    const spellId = state.player.spells[index];
+    if (!spellId) {
+      addLog("В этом слоте нет заклинания для улучшения.");
+      return;
+    }
+
+    const spell = SPELLS[spellId];
+    const level = spellLevel(spellId);
+    if (level >= MAX_SPELL_LEVEL) {
+      addLog(`${spell.name} уже достигло 3 уровня.`);
+      return;
+    }
+
+    const upgrade = nextSpellUpgrade(spellId);
+    if (!upgrade) {
+      addLog(`${spell.name} пока нельзя улучшить дальше.`);
+      return;
+    }
+
+    if (state.player.magicShards < upgrade.cost) {
+      addLog(`Не хватает осколков магии: нужно ${upgrade.cost}.`);
+      return;
+    }
+
+    state.player.magicShards -= upgrade.cost;
+    state.player.spellLevels[spellId] = level + 1;
+    addLog(`${spell.name} усилено до уровня ${level + 1}: ${upgrade.text}.`);
+  }
+
   function handleKeyDown(event) {
     const key = normalizeKey(event.key.toLowerCase(), event.code);
 
@@ -1613,6 +1780,11 @@
       return;
     }
 
+    if (key === "u") {
+      toggleUpgradeMode();
+      return;
+    }
+
     const dir = keyToDirection(key);
     if (dir) {
       tryMovePlayer(dir.x, dir.y);
@@ -1621,6 +1793,10 @@
 
     if (["1", "2", "3"].includes(key)) {
       const index = Number(key) - 1;
+      if (state.upgradeMode) {
+        upgradeSpellInSlot(index);
+        return;
+      }
       if (state.player.spells[index]) {
         state.selectedSpellIndex = index;
         addLog(`Выбрано: ${SPELLS[state.player.spells[index]].name}.`);
@@ -1647,6 +1823,7 @@
       KeyD: "d",
       KeyE: "e",
       KeyR: "r",
+      KeyU: "u",
     };
     const russianLayout = {
       ц: "w",
@@ -1655,6 +1832,7 @@
       в: "d",
       у: "e",
       к: "r",
+      г: "u",
     };
     return russianLayout[key] || physicalKeys[code] || key;
   }
@@ -1786,6 +1964,7 @@
       addLog("Можно держать только 3 активных заклинания.");
     } else {
       state.player.spells.push(book.spellId);
+      state.player.spellLevels[book.spellId] = SPELLS[book.spellId].level;
       addLog("Вы изучили новое заклинание.");
     }
     state.objects = state.objects.filter((object) => object.id !== book.id);
@@ -1821,7 +2000,7 @@
 
   function castSpell(spell) {
     if (spell.id === "stoneArmor") {
-      const amount = 3 + state.player.earthShieldBonus;
+      const amount = 3 + state.player.earthShieldBonus + spellUpgradeTotal(spell.id, "shieldBonus");
       state.player.shield += amount;
       addLog(`Каменная броня дает ${amount} щита.`);
       return true;
@@ -1838,8 +2017,15 @@
         return false;
       }
       targets.forEach((enemy) => {
-        damageEnemy(enemy, spellDamage(spell, enemy), spell.name, spell.element);
-        pushEnemy(enemy, 2 + state.player.windPushBonus);
+        const died = damageEnemy(enemy, spellDamage(spell, enemy), spell.name, spell.element);
+        if (died || !state.enemies.includes(enemy)) {
+          return;
+        }
+        const pushResult = pushEnemy(enemy, 2 + state.player.windPushBonus);
+        const collisionDamage = spellUpgradeTotal(spell.id, "collisionDamage");
+        if (collisionDamage > 0 && pushResult.blocked && state.enemies.includes(enemy)) {
+          damageEnemy(enemy, collisionDamage, "столкновение с преградой", spell.element);
+        }
       });
       return true;
     }
@@ -1857,7 +2043,8 @@
         x: safeCenter.x,
         y: safeCenter.y,
         radius: 1,
-        turns: 3 + state.player.poisonBonusTurns,
+        turns: 3 + state.player.poisonBonusTurns + spellUpgradeTotal(spell.id, "hazardTurnsBonus"),
+        damage: spellUpgradeOverride(spell.id, "hazardDamage", 1),
       });
       addLog("Ядовитое облако расползается по плитам.");
       addEffect(safeCenter.x, safeCenter.y, ELEMENT_COLORS.poison, 8, "яд");
@@ -1872,17 +2059,25 @@
       }
       damageEnemy(first, spellDamage(spell, first), spell.name, spell.element);
       addEffect(first.x, first.y, ELEMENT_COLORS.lightning, 8, "молния");
-      const second = state.enemies
-        .filter((enemy) =>
-          enemy.hp > 0 &&
-          enemy.id !== first.id &&
-          isVisibleCell(enemy.x, enemy.y) &&
-          distance(enemy, first) <= 4
-        )
-        .sort((a, b) => distance(a, first) - distance(b, first))[0];
-      if (second) {
-        damageEnemy(second, Math.max(1, spellDamage(spell, second) - 1), "скачок молнии", spell.element);
-        addEffect(second.x, second.y, ELEMENT_COLORS.lightning, 8, "молния");
+      let jumpSource = first;
+      const hitIds = new Set([first.id]);
+      const maxJumps = spellUpgradeOverride(spell.id, "chainJumps", 1);
+      for (let jump = 1; jump <= maxJumps; jump += 1) {
+        const next = state.enemies
+          .filter((enemy) =>
+            enemy.hp > 0 &&
+            !hitIds.has(enemy.id) &&
+            isVisibleCell(enemy.x, enemy.y) &&
+            distance(enemy, jumpSource) <= 4
+          )
+          .sort((a, b) => distance(a, jumpSource) - distance(b, jumpSource))[0];
+        if (!next) {
+          break;
+        }
+        hitIds.add(next.id);
+        damageEnemy(next, Math.max(1, spellDamage(spell, next) - jump), "скачок молнии", spell.element);
+        addEffect(next.x, next.y, ELEMENT_COLORS.lightning, 8, "молния");
+        jumpSource = next;
       }
       return true;
     }
@@ -1895,25 +2090,27 @@
 
     let damage = spellDamage(spell, target);
     if (spell.id === "shadowSpike" && target.hp < target.maxHp) {
-      damage += 2 + state.player.shadowWoundBonus;
+      damage += 2 + state.player.shadowWoundBonus + spellUpgradeTotal(spell.id, "woundedBonus");
     }
     if (spell.id === "dawnRay" && target.tags.includes("undead")) {
-      damage += 2;
+      damage += spellUpgradeOverride(spell.id, "undeadBonus", 2);
     }
 
     const died = damageEnemy(target, damage, spell.name, spell.element);
     addEffect(target.x, target.y, ELEMENT_COLORS[spell.element], 8, spell.name);
 
     if (spell.id === "fireball" && target.hp > 0 && Math.random() < 0.45) {
-      target.burn = 2;
+      target.burn = spellUpgradeOverride(spell.id, "burnTurns", 2);
       addLog(`${target.name} горит.`);
     }
     if (spell.id === "iceShard" && target.hp > 0) {
-      target.slow = Math.max(target.slow, randomInt(2, 3));
+      const slowMin = spellUpgradeOverride(spell.id, "slowMin", 2);
+      const slowMax = spellUpgradeOverride(spell.id, "slowMax", 3);
+      target.slow = Math.max(target.slow, randomInt(slowMin, slowMax));
       addLog(`${target.name} замедлен.`);
     }
     if (spell.id === "dawnRay") {
-      const heal = 1 + state.player.lightHealBonus + (died ? 1 : 0);
+      const heal = 1 + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + (died ? 1 : 0);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
       addLog(`Луч рассвета лечит ${heal} здоровья.`);
     }
@@ -1923,7 +2120,8 @@
   function spellDamage(spell, enemy) {
     const elementBonus = state.player.elementBonus[spell.element] || 0;
     const weaknessBonus = enemy.weakTo.includes(spell.element) ? 1 : 0;
-    const scaled = (spell.baseDamage + state.player.flatSpellBonus + weaknessBonus) *
+    const upgradeBonus = spellUpgradeTotal(spell.id, "damageBonus");
+    const scaled = (spell.baseDamage + upgradeBonus + state.player.flatSpellBonus + weaknessBonus) *
       (state.player.spellDamageMultiplier + elementBonus);
     return Math.max(1, Math.round(scaled));
   }
@@ -2019,6 +2217,7 @@
 
   function handleBossDefeat(enemy) {
     clearBossSummons(enemy);
+    grantBossMagicShardReward(state.floor);
     if (state.floor >= CONFIG.maxFloors) {
       addLog("Сердце башни разбито. Башня спасена.");
       setMode(MODES.VICTORY);
@@ -2085,7 +2284,7 @@
     state.hazards.forEach((hazard) => {
       state.enemies.forEach((enemy) => {
         if (distance(enemy, hazard) <= hazard.radius) {
-          damageEnemy(enemy, 1, "ядовитое облако", "poison");
+          damageEnemy(enemy, hazard.damage || 1, "ядовитое облако", "poison");
         }
       });
       if (distance(state.player, hazard) <= hazard.radius && hazard.type === "danger") {
@@ -2414,14 +2613,17 @@
   function pushEnemy(enemy, steps) {
     const dx = Math.sign(enemy.x - state.player.x);
     const dy = Math.sign(enemy.y - state.player.y);
+    let moved = false;
     for (let i = 0; i < steps; i += 1) {
       const next = { x: enemy.x + dx, y: enemy.y + dy };
       if (!isFreeCell(next.x, next.y)) {
-        break;
+        return { moved, blocked: true };
       }
       enemy.x = next.x;
       enemy.y = next.y;
+      moved = true;
     }
+    return { moved, blocked: false };
   }
 
   function addEffect(x, y, color, turns, label = "") {
@@ -2631,6 +2833,9 @@
     dom.manaText.textContent = `${state.player.mana}/${state.player.maxMana}`;
     dom.manaFill.style.width = `${clamp((state.player.mana / state.player.maxMana) * 100, 0, 100)}%`;
     dom.shieldText.textContent = `Щит: ${state.player.shield}`;
+    if (dom.magicShardsText) {
+      dom.magicShardsText.textContent = `Осколки: ${state.player.magicShards}`;
+    }
     dom.turnText.textContent = `Ход ${state.turn}`;
     dom.traitName.textContent = state.player.trait ? state.player.trait.name : "—";
     dom.traitEffect.textContent = state.player.trait ? state.player.trait.description : "—";
@@ -2644,14 +2849,35 @@
     dom.spellList.innerHTML = "";
     state.player.spells.forEach((spellId, index) => {
       const spell = SPELLS[spellId];
+      const level = spellLevel(spellId);
+      const upgrade = nextSpellUpgrade(spellId);
+      const canUpgrade = Boolean(upgrade && state.player.magicShards >= upgrade.cost);
+      const statusText = !upgrade
+        ? "Максимальный уровень"
+        : canUpgrade
+          ? state.upgradeMode ? `Нажмите ${index + 1}, чтобы улучшить` : "Можно улучшить"
+          : "Не хватает осколков";
+      const statusClass = !upgrade ? "is-max" : canUpgrade ? "is-ready" : "is-locked";
       const card = document.createElement("div");
-      card.className = `spell-card${index === state.selectedSpellIndex ? " is-active" : ""}`;
+      card.className = [
+        "spell-card",
+        index === state.selectedSpellIndex ? "is-active" : "",
+        state.upgradeMode ? "is-upgrade-mode" : "",
+        canUpgrade ? "can-upgrade" : "",
+      ].filter(Boolean).join(" ");
       card.innerHTML = `
         <div class="spell-title">
           <span>${index + 1}. ${spell.name}</span>
-          <span style="color:${ELEMENT_COLORS[spell.element]}">${spellCost(spell)} м</span>
+          <span class="spell-badges">
+            <span class="spell-level">Ур. ${level}/${MAX_SPELL_LEVEL}</span>
+            <span style="color:${ELEMENT_COLORS[spell.element]}">${spellCost(spell)} м</span>
+          </span>
         </div>
         <div class="spell-meta">${spell.description}</div>
+        <div class="spell-upgrade">
+          ${upgrade ? `До ур. ${level + 1}: ${upgrade.cost} осколок - ${upgrade.text}` : "Дальше только эволюция."}
+        </div>
+        <div class="spell-upgrade-status ${statusClass}">${statusText}</div>
       `;
       dom.spellList.appendChild(card);
     });
