@@ -334,6 +334,16 @@ canvas {
   box-shadow: inset 0 0 0 1px rgba(111, 224, 88, 0.24);
 }
 
+.spell-card.is-evolution-choice {
+  border-color: #64e6db;
+  box-shadow: inset 0 0 0 1px rgba(100, 230, 219, 0.32);
+}
+
+.spell-card.is-evolved {
+  border-color: #b46bff;
+  background: #171527;
+}
+
 .spell-title {
   display: flex;
   justify-content: space-between;
@@ -372,6 +382,31 @@ canvas {
   line-height: 1.35;
 }
 
+.spell-evolution {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  border-left: 2px solid #64e6db;
+  padding-left: 7px;
+  color: #cdebe8;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.spell-evolution strong {
+  color: #ffffff;
+}
+
+.spell-evolution span {
+  color: #f8df9a;
+  font-weight: 700;
+}
+
+.spell-evolution.is-chosen {
+  border-left-color: #b46bff;
+  color: #e7d8ff;
+}
+
 .spell-upgrade-status {
   margin-top: 3px;
   font-size: 11px;
@@ -388,6 +423,10 @@ canvas {
 
 .spell-upgrade-status.is-max {
   color: #9fa9b8;
+}
+
+.spell-upgrade-status.is-evolved {
+  color: #d7b8ff;
 }
 
 .log-panel {

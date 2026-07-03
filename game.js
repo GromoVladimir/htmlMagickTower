@@ -170,6 +170,7 @@
 
   const MAX_SPELL_LEVEL = 3;
   const SPELL_UPGRADE_COST = 1;
+  const EVOLUTION_COST = 1;
 
   const SPELL_UPGRADES = {
     fireball: {
@@ -208,6 +209,178 @@
       2: { cost: SPELL_UPGRADE_COST, text: "+1 урон", damageBonus: 1 },
       3: { cost: SPELL_UPGRADE_COST, text: "еще +1 урон", damageBonus: 1 },
     },
+  };
+
+  const SPELL_EVOLUTIONS = {
+    fireball: [
+      {
+        id: "pyroclast",
+        name: "Пирокласт",
+        description: "Оставляет горящую область и поджигает врагов внутри.",
+        logText: "Огонь теперь держит зону под контролем.",
+        hazardTurns: 2,
+        hazardDamage: 1,
+        burnTurns: 2,
+      },
+      {
+        id: "solarMeteor",
+        name: "Солнечный метеор",
+        description: "Стоит дороже, но обрушивает мощный одиночный удар.",
+        logText: "Пламя собирается в один тяжелый удар.",
+        costModifier: 2,
+        damageBonus: 4,
+        burnConsumeBonus: 3,
+      },
+    ],
+    iceShard: [
+      {
+        id: "icePrison",
+        name: "Ледяная тюрьма",
+        description: "Надолго сковывает одну цель.",
+        logText: "Лед превращается в клетку для одной жертвы.",
+        slowTurns: 5,
+      },
+      {
+        id: "shardStorm",
+        name: "Осколочная буря",
+        description: "Осколки задевают врагов рядом с основной целью.",
+        logText: "Лед рассыпается бурей по ближайшим врагам.",
+        sideTargets: 2,
+        sideRadius: 2,
+        sideDamagePenalty: 1,
+        slowTurns: 2,
+      },
+    ],
+    poisonCloud: [
+      {
+        id: "plagueCloud",
+        name: "Чумное облако",
+        description: "Смерть в облаке рождает новое короткое облако.",
+        logText: "Яд начинает переходить от павших к живым.",
+        spreadTurns: 2,
+      },
+      {
+        id: "acidMist",
+        name: "Кислотный туман",
+        description: "Кислота ослабляет цель для следующих ударов.",
+        logText: "Яд становится едким и разъедает защиту.",
+        acidTurns: 3,
+        acidBonus: 1,
+      },
+    ],
+    chainLightning: [
+      {
+        id: "stormChain",
+        name: "Грозовая цепь",
+        description: "Молния делает больше скачков на большей дистанции.",
+        logText: "Разряд ищет все новые цели.",
+        jumpBonus: 2,
+        jumpRange: 5,
+      },
+      {
+        id: "overload",
+        name: "Перегрузка",
+        description: "Меньше целей, но каждый удар может оглушить.",
+        logText: "Молния бьет грубее и сбивает врагов с хода.",
+        maxJumps: 1,
+        jumpRange: 3,
+        stunChance: 0.45,
+        stunTurns: 1,
+      },
+    ],
+    dawnRay: [
+      {
+        id: "dawnSpear",
+        name: "Копье зари",
+        description: "Пробивает всех врагов на линии взгляда.",
+        logText: "Свет вытягивается в пронзающую линию.",
+        damageBonus: 1,
+      },
+      {
+        id: "holyCircle",
+        name: "Священный круг",
+        description: "Лечит, дает щит и ранит врагов вокруг мага.",
+        logText: "Свет собирается вокруг мага защитным кругом.",
+        radius: 2,
+        heal: 2,
+        shield: 2,
+        damagePenalty: 1,
+      },
+    ],
+    shadowSpike: [
+      {
+        id: "twilightBlade",
+        name: "Клинок сумрака",
+        description: "Сам ищет раненую цель и возвращает ману за добивание.",
+        logText: "Тень тянется к уже ослабленным врагам.",
+        executeBonus: 3,
+        manaRefund: 1,
+      },
+      {
+        id: "cursedMark",
+        name: "Проклятая метка",
+        description: "Помечает цель, усиливая следующие попадания по ней.",
+        logText: "Тень оставляет на цели уязвимое проклятие.",
+        markTurns: 3,
+        markHits: 2,
+        markBonus: 2,
+      },
+    ],
+    stoneArmor: [
+      {
+        id: "graniteCarapace",
+        name: "Гранитный панцирь",
+        description: "Дает мощный щит и снижает входящий урон.",
+        logText: "Камень ложится тяжелой защитной плитой.",
+        shieldBonus: 5,
+        reductionTurns: 3,
+        reduction: 1,
+      },
+      {
+        id: "earthBastion",
+        name: "Земной бастион",
+        description: "Дает щит и ставит временные каменные преграды.",
+        logText: "Земля поднимает защитные выступы вокруг мага.",
+        shieldBonus: 1,
+        barrierTurns: 3,
+        barrierCount: 3,
+      },
+    ],
+    windGust: [
+      {
+        id: "hurricaneWall",
+        name: "Ураганный вал",
+        description: "Шире и сильнее отталкивает толпу.",
+        logText: "Ветер превращается в широкую ударную волну.",
+        rangeBonus: 2,
+        pushBonus: 2,
+        collisionDamageBonus: 1,
+      },
+      {
+        id: "windStep",
+        name: "Шаг ветра",
+        description: "Сдвигает мага по направлению движения и дает щит.",
+        logText: "Ветер переносит мага сквозь опасную позицию.",
+        steps: 2,
+        shield: 2,
+      },
+    ],
+    magicMissile: [
+      {
+        id: "echoMissile",
+        name: "Эхо стрелы",
+        description: "После попадания ослабленное эхо бьет вторую цель.",
+        logText: "Арканный снаряд оставляет второе эхо.",
+        echoMultiplier: 0.5,
+      },
+      {
+        id: "manaNeedle",
+        name: "Мана-игла",
+        description: "Возвращает ману, если добивает цель.",
+        logText: "Стрела вытягивает искру маны из павшей цели.",
+        manaRefund: 1,
+      },
+    ],
   };
 
   const BOOK_SPELLS = [
@@ -983,6 +1156,7 @@
     enemies: [],
     objects: [],
     hazards: [],
+    barriers: [],
     effects: [],
     visible: [],
     explored: [],
@@ -990,6 +1164,9 @@
     turn: 0,
     selectedSpellIndex: 0,
     upgradeMode: false,
+    evolutionChoiceSpellId: null,
+    evolutionChoiceSlotIndex: null,
+    pendingManaRefund: 0,
     idCounter: 1,
     lastMoveDir: { x: 1, y: 0 },
   };
@@ -1032,7 +1209,9 @@
   }
 
   function spellCost(spell) {
-    return Math.max(0, spell.cost + (state.player?.spellCostModifier || 0));
+    const evolution = spellEvolution(spell.id);
+    const evolutionCost = evolution?.costModifier || 0;
+    return Math.max(0, spell.cost + (state.player?.spellCostModifier || 0) + evolutionCost);
   }
 
   function spellLevel(spellId) {
@@ -1045,6 +1224,35 @@
   function nextSpellUpgrade(spellId) {
     const nextLevel = spellLevel(spellId) + 1;
     return SPELL_UPGRADES[spellId]?.[nextLevel] || null;
+  }
+
+  function evolutionOptions(spellId) {
+    return SPELL_EVOLUTIONS[spellId] || [];
+  }
+
+  function evolutionById(spellId, evolutionId) {
+    return evolutionOptions(spellId).find((evolution) => evolution.id === evolutionId) || null;
+  }
+
+  function spellEvolution(spellId) {
+    if (!state.player?.spellEvolutions) {
+      return null;
+    }
+    return evolutionById(spellId, state.player.spellEvolutions[spellId]);
+  }
+
+  function hasEvolution(spellId) {
+    return Boolean(spellEvolution(spellId));
+  }
+
+  function canEvolveSpell(spellId) {
+    return Boolean(
+      state.player &&
+      spellLevel(spellId) >= MAX_SPELL_LEVEL &&
+      !hasEvolution(spellId) &&
+      evolutionOptions(spellId).length &&
+      state.player.magicShards >= EVOLUTION_COST
+    );
   }
 
   function spellUpgradeTotal(spellId, key) {
@@ -1141,6 +1349,8 @@
     state.mode = mode;
     if (mode !== MODES.PLAYING) {
       state.upgradeMode = false;
+      state.evolutionChoiceSpellId = null;
+      state.evolutionChoiceSlotIndex = null;
     }
     updateOverlay();
     updateUI();
@@ -1158,6 +1368,7 @@
       staffDamage: CONFIG.basePlayer.staffDamage,
       spells: ["fireball"],
       spellLevels: { fireball: 1 },
+      spellEvolutions: {},
       magicShards: 0,
       claimedMagicShardRewards: {},
       selectedSpell: 0,
@@ -1176,6 +1387,8 @@
       shadowWoundBonus: 0,
       earthShieldBonus: 0,
       windPushBonus: 0,
+      damageReduction: 0,
+      damageReductionTurns: 0,
       visionBonus: 0,
       artifacts: [],
       trait: null,
@@ -1189,11 +1402,15 @@
     state.enemies = [];
     state.objects = [];
     state.hazards = [];
+    state.barriers = [];
     state.effects = [];
     state.visible = [];
     state.explored = [];
     state.selectedSpellIndex = 0;
     state.upgradeMode = false;
+    state.evolutionChoiceSpellId = null;
+    state.evolutionChoiceSlotIndex = null;
+    state.pendingManaRefund = 0;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
 
@@ -1212,6 +1429,7 @@
     state.enemies = [];
     state.objects = [];
     state.hazards = [];
+    state.barriers = [];
     state.effects = [];
     const floorData = generateFloor(floor);
     state.map = floorData.map;
@@ -1535,8 +1753,14 @@
       weakTo: template.weakTo || [],
       tags: template.tags || [],
       slow: 0,
+      stun: 0,
       burn: 0,
       poison: 0,
+      acidTurns: 0,
+      acidBonus: 0,
+      curseMarkTurns: 0,
+      curseMarkHits: 0,
+      curseMarkBonus: 0,
       skipCounter: 0,
       bossTimer: 0,
       ...overrides,
@@ -1639,8 +1863,16 @@
     return state.enemies.find((enemy) => enemy.x === x && enemy.y === y && enemy.hp > 0);
   }
 
+  function barrierAt(x, y) {
+    return state.barriers.find((barrier) => barrier.x === x && barrier.y === y && barrier.turns > 0);
+  }
+
   function isFreeCell(x, y) {
-    return isWalkable(x, y) && !enemyAt(x, y) && !objectAt(x, y) && !(state.player && state.player.x === x && state.player.y === y);
+    return isWalkable(x, y) &&
+      !barrierAt(x, y) &&
+      !enemyAt(x, y) &&
+      !objectAt(x, y) &&
+      !(state.player && state.player.x === x && state.player.y === y);
   }
 
   function getActiveSummonsForBoss(boss, filter = () => true) {
@@ -1715,9 +1947,15 @@
 
   function toggleUpgradeMode() {
     state.upgradeMode = !state.upgradeMode;
+    clearEvolutionChoice();
     addLog(state.upgradeMode
-      ? "Режим улучшений: нажмите 1-3, чтобы усилить заклинание."
+      ? "Режим улучшений: нажмите 1-3, чтобы усилить или эволюционировать заклинание."
       : "Режим улучшений закрыт.");
+  }
+
+  function clearEvolutionChoice() {
+    state.evolutionChoiceSpellId = null;
+    state.evolutionChoiceSlotIndex = null;
   }
 
   function upgradeSpellInSlot(index) {
@@ -1730,7 +1968,7 @@
     const spell = SPELLS[spellId];
     const level = spellLevel(spellId);
     if (level >= MAX_SPELL_LEVEL) {
-      addLog(`${spell.name} уже достигло 3 уровня.`);
+      openEvolutionChoice(index, spellId);
       return;
     }
 
@@ -1747,7 +1985,89 @@
 
     state.player.magicShards -= upgrade.cost;
     state.player.spellLevels[spellId] = level + 1;
+    clearEvolutionChoice();
     addLog(`${spell.name} усилено до уровня ${level + 1}: ${upgrade.text}.`);
+  }
+
+  function openEvolutionChoice(index, spellId) {
+    const spell = SPELLS[spellId];
+    const level = spellLevel(spellId);
+    const options = evolutionOptions(spellId);
+    const currentEvolution = spellEvolution(spellId);
+
+    if (level < MAX_SPELL_LEVEL) {
+      addLog(`${spell.name} сначала нужно усилить до 3 уровня.`);
+      return;
+    }
+
+    if (currentEvolution) {
+      addLog(`${spell.name} уже эволюционировало: ${currentEvolution.name}.`);
+      clearEvolutionChoice();
+      return;
+    }
+
+    if (!options.length) {
+      addLog(`${spell.name} пока не имеет веток эволюции.`);
+      clearEvolutionChoice();
+      return;
+    }
+
+    if (state.player.magicShards < EVOLUTION_COST) {
+      addLog(`Не хватает осколков магии для эволюции: нужно ${EVOLUTION_COST}.`);
+      clearEvolutionChoice();
+      return;
+    }
+
+    state.evolutionChoiceSpellId = spellId;
+    state.evolutionChoiceSlotIndex = index;
+    addLog(`Выберите эволюцию для ${spell.name}: 1 - ${options[0].name}, 2 - ${options[1].name}, 3 - отмена.`);
+    updateUI();
+  }
+
+  function chooseEvolutionBranch(choiceIndex) {
+    const spellId = state.evolutionChoiceSpellId;
+    if (!spellId) {
+      return;
+    }
+
+    if (choiceIndex === 2) {
+      const spell = SPELLS[spellId];
+      clearEvolutionChoice();
+      addLog(`Выбор эволюции для ${spell.name} отменен.`);
+      return;
+    }
+
+    const spell = SPELLS[spellId];
+    const branch = evolutionOptions(spellId)[choiceIndex];
+    if (!branch) {
+      addLog("Выберите ветку 1 или 2.");
+      return;
+    }
+
+    if (spellLevel(spellId) < MAX_SPELL_LEVEL) {
+      clearEvolutionChoice();
+      addLog(`${spell.name} сначала нужно усилить до 3 уровня.`);
+      return;
+    }
+
+    if (hasEvolution(spellId)) {
+      const currentEvolution = spellEvolution(spellId);
+      clearEvolutionChoice();
+      addLog(`${spell.name} уже эволюционировало: ${currentEvolution.name}.`);
+      return;
+    }
+
+    if (state.player.magicShards < EVOLUTION_COST) {
+      clearEvolutionChoice();
+      addLog(`Не хватает осколков магии для эволюции: нужно ${EVOLUTION_COST}.`);
+      return;
+    }
+
+    state.player.magicShards -= EVOLUTION_COST;
+    state.player.spellEvolutions[spellId] = branch.id;
+    clearEvolutionChoice();
+    addLog(`${spell.name} эволюционирует: ${branch.name}. ${branch.logText}`);
+    updateUI();
   }
 
   function handleKeyDown(event) {
@@ -1794,6 +2114,10 @@
     if (["1", "2", "3"].includes(key)) {
       const index = Number(key) - 1;
       if (state.upgradeMode) {
+        if (state.evolutionChoiceSpellId) {
+          chooseEvolutionBranch(index);
+          return;
+        }
         upgradeSpellInSlot(index);
         return;
       }
@@ -1850,6 +2174,10 @@
     state.lastMoveDir = { x: dx, y: dy };
     if (!isWalkable(target.x, target.y)) {
       addLog("Каменная стена не поддается.");
+      return;
+    }
+    if (barrierAt(target.x, target.y)) {
+      addLog("Земная преграда держит проход.");
       return;
     }
 
@@ -1985,6 +2313,7 @@
     }
 
     // Общий вход для заклинаний держит цену, лог и передачу хода в одном месте.
+    state.pendingManaRefund = 0;
     const acted = castSpell(spell);
     if (acted) {
       if (!isFree) {
@@ -1993,24 +2322,177 @@
         state.player.freeSpellAvailable = false;
         addLog("Экономный колдун сохраняет ману.");
       }
+      if (state.pendingManaRefund > 0) {
+        const refund = state.pendingManaRefund;
+        state.player.mana = Math.min(state.player.maxMana, state.player.mana + refund);
+        addLog(`Эволюция возвращает ${refund} маны.`);
+      }
+      state.pendingManaRefund = 0;
       addEffect(state.player.x, state.player.y, ELEMENT_COLORS[spell.element], 5, spell.name);
       advanceTurn();
     }
   }
 
+  function applyOverloadStun(enemy, evolution) {
+    if (evolution?.id !== "overload" || !state.enemies.includes(enemy)) {
+      return;
+    }
+    if (Math.random() < evolution.stunChance) {
+      enemy.stun = Math.max(enemy.stun, evolution.stunTurns);
+      addLog(`${enemy.name} оглушен перегрузкой.`);
+      addEffect(enemy.x, enemy.y, ELEMENT_COLORS.lightning, 7, "!");
+    }
+  }
+
+  function castChainLightningSpell(spell, evolution) {
+    const first = nearestEnemy(spell.range);
+    if (!first) {
+      addLog("Молния не нашла цель.");
+      return false;
+    }
+
+    damageEnemy(first, spellDamage(spell, first), spell.name, spell.element);
+    applyOverloadStun(first, evolution);
+    addEffect(first.x, first.y, ELEMENT_COLORS.lightning, 8, "молния");
+
+    let jumpSource = first;
+    const hitIds = new Set([first.id]);
+    const baseJumps = spellUpgradeOverride(spell.id, "chainJumps", 1);
+    const maxJumps = evolution?.id === "overload"
+      ? evolution.maxJumps
+      : baseJumps + (evolution?.id === "stormChain" ? evolution.jumpBonus : 0);
+    const jumpRange = evolution?.jumpRange || 4;
+
+    for (let jump = 1; jump <= maxJumps; jump += 1) {
+      const next = state.enemies
+        .filter((enemy) =>
+          enemy.hp > 0 &&
+          !hitIds.has(enemy.id) &&
+          isVisibleCell(enemy.x, enemy.y) &&
+          distance(enemy, jumpSource) <= jumpRange
+        )
+        .sort((a, b) => distance(a, jumpSource) - distance(b, jumpSource))[0];
+      if (!next) {
+        break;
+      }
+      hitIds.add(next.id);
+      damageEnemy(next, Math.max(1, spellDamage(spell, next) - jump), "скачок молнии", spell.element);
+      applyOverloadStun(next, evolution);
+      addEffect(next.x, next.y, ELEMENT_COLORS.lightning, 8, "молния");
+      jumpSource = next;
+    }
+    return true;
+  }
+
+  function placeEarthBastion(evolution) {
+    const placed = [];
+    const preferredDirections = nearbyEnemies(state.player, 8)
+      .map((enemy) => {
+        const dx = enemy.x - state.player.x;
+        const dy = enemy.y - state.player.y;
+        return Math.abs(dx) >= Math.abs(dy)
+          ? { x: Math.sign(dx), y: 0 }
+          : { x: 0, y: Math.sign(dy) };
+      });
+    const fallback = state.lastMoveDir.x || state.lastMoveDir.y ? state.lastMoveDir : { x: 1, y: 0 };
+    const directions = [...preferredDirections, fallback, { x: -fallback.y, y: fallback.x }, { x: fallback.y, y: -fallback.x }];
+    const candidates = [];
+
+    directions.forEach((dir) => {
+      for (let step = 1; step <= 2; step += 1) {
+        const base = { x: state.player.x + dir.x * step, y: state.player.y + dir.y * step };
+        const sideA = { x: base.x - dir.y, y: base.y + dir.x };
+        const sideB = { x: base.x + dir.y, y: base.y - dir.x };
+        [base, sideA, sideB].forEach((cell) => {
+          if (!candidates.some((existing) => sameCell(existing, cell))) {
+            candidates.push(cell);
+          }
+        });
+      }
+    });
+
+    candidates.forEach((cell) => {
+      if (
+        placed.length >= evolution.barrierCount ||
+        !isFreeCell(cell.x, cell.y) ||
+        wouldLeavePlayerEscape(cell)
+      ) {
+        return;
+      }
+      const barrier = {
+        id: nextId(),
+        x: cell.x,
+        y: cell.y,
+        turns: evolution.barrierTurns,
+      };
+      state.barriers.push(barrier);
+      placed.push(barrier);
+      addEffect(cell.x, cell.y, ELEMENT_COLORS.earth, 8, "кам");
+    });
+
+    return placed.length;
+  }
+
+  function tryWindStep(evolution) {
+    const dir = state.lastMoveDir.x || state.lastMoveDir.y ? state.lastMoveDir : { x: 1, y: 0 };
+    let moved = 0;
+    for (let step = 0; step < evolution.steps; step += 1) {
+      const next = { x: state.player.x + dir.x, y: state.player.y + dir.y };
+      if (
+        !isWalkable(next.x, next.y) ||
+        barrierAt(next.x, next.y) ||
+        enemyAt(next.x, next.y) ||
+        objectAt(next.x, next.y)
+      ) {
+        break;
+      }
+      state.player.x = next.x;
+      state.player.y = next.y;
+      moved += 1;
+      addEffect(next.x, next.y, ELEMENT_COLORS.wind, 6, "вет");
+    }
+    if (moved > 0) {
+      updateVision();
+    }
+    return moved;
+  }
+
   function castSpell(spell) {
+    const evolution = spellEvolution(spell.id);
+
     if (spell.id === "stoneArmor") {
-      const amount = 3 + state.player.earthShieldBonus + spellUpgradeTotal(spell.id, "shieldBonus");
+      const amount = 3 +
+        state.player.earthShieldBonus +
+        spellUpgradeTotal(spell.id, "shieldBonus") +
+        (evolution?.shieldBonus || 0);
       state.player.shield += amount;
-      addLog(`Каменная броня дает ${amount} щита.`);
+
+      if (evolution?.id === "graniteCarapace") {
+        state.player.damageReduction = Math.max(state.player.damageReduction, evolution.reduction);
+        state.player.damageReductionTurns = Math.max(state.player.damageReductionTurns, evolution.reductionTurns);
+        addLog(`Гранитный панцирь дает ${amount} щита и снижает входящий урон.`);
+      } else if (evolution?.id === "earthBastion") {
+        const barriers = placeEarthBastion(evolution);
+        addLog(`Земной бастион дает ${amount} щита и поднимает преграды: ${barriers}.`);
+      } else {
+        addLog(`Каменная броня дает ${amount} щита.`);
+      }
       return true;
     }
 
     if (spell.id === "windGust") {
+      if (evolution?.id === "windStep") {
+        const moved = tryWindStep(evolution);
+        state.player.shield += evolution.shield;
+        addLog(`Шаг ветра переносит мага на ${moved} кл. и дает ${evolution.shield} щита.`);
+        return true;
+      }
+
+      const range = spell.range + (evolution?.id === "hurricaneWall" ? evolution.rangeBonus : 0);
       const targets = state.enemies.filter((enemy) =>
         enemy.hp > 0 &&
         isVisibleCell(enemy.x, enemy.y) &&
-        distance(enemy, state.player) <= spell.range
+        distance(enemy, state.player) <= range
       );
       if (!targets.length) {
         addLog("Порыву ветра некого оттолкнуть.");
@@ -2021,8 +2503,10 @@
         if (died || !state.enemies.includes(enemy)) {
           return;
         }
-        const pushResult = pushEnemy(enemy, 2 + state.player.windPushBonus);
-        const collisionDamage = spellUpgradeTotal(spell.id, "collisionDamage");
+        const pushSteps = 2 + state.player.windPushBonus + (evolution?.id === "hurricaneWall" ? evolution.pushBonus : 0);
+        const pushResult = pushEnemy(enemy, pushSteps);
+        const collisionDamage = spellUpgradeTotal(spell.id, "collisionDamage") +
+          (evolution?.id === "hurricaneWall" ? evolution.collisionDamageBonus : 0);
         if (collisionDamage > 0 && pushResult.blocked && state.enemies.includes(enemy)) {
           damageEnemy(enemy, collisionDamage, "столкновение с преградой", spell.element);
         }
@@ -2036,84 +2520,188 @@
         x: state.player.x + state.lastMoveDir.x * Math.min(3, spell.range),
         y: state.player.y + state.lastMoveDir.y * Math.min(3, spell.range),
       };
-      const safeCenter = isWalkable(center.x, center.y) ? center : { x: state.player.x, y: state.player.y };
-      state.hazards.push({
+      const safeCenter = isWalkable(center.x, center.y) && !barrierAt(center.x, center.y)
+        ? center
+        : { x: state.player.x, y: state.player.y };
+      const hazard = {
         id: nextId(),
-        type: "poison",
+        type: evolution?.id === "acidMist" ? "acid" : "poison",
         x: safeCenter.x,
         y: safeCenter.y,
         radius: 1,
         turns: 3 + state.player.poisonBonusTurns + spellUpgradeTotal(spell.id, "hazardTurnsBonus"),
         damage: spellUpgradeOverride(spell.id, "hazardDamage", 1),
-      });
-      addLog("Ядовитое облако расползается по плитам.");
-      addEffect(safeCenter.x, safeCenter.y, ELEMENT_COLORS.poison, 8, "яд");
+        label: evolution?.id === "acidMist" ? "кислотный туман" : "ядовитое облако",
+      };
+      if (evolution?.id === "plagueCloud") {
+        hazard.spreadOnDeath = true;
+        hazard.spreadTurns = evolution.spreadTurns;
+      }
+      if (evolution?.id === "acidMist") {
+        hazard.acidTurns = evolution.acidTurns;
+        hazard.acidBonus = evolution.acidBonus;
+      }
+      state.hazards.push(hazard);
+      addLog(evolution?.id === "acidMist"
+        ? "Кислотный туман расползается по плитам."
+        : "Ядовитое облако расползается по плитам.");
+      addEffect(safeCenter.x, safeCenter.y, ELEMENT_COLORS.poison, 8, evolution?.id === "acidMist" ? "кис" : "яд");
       return true;
     }
 
     if (spell.id === "chainLightning") {
-      const first = nearestEnemy(spell.range);
-      if (!first) {
-        addLog("Молния не нашла цель.");
-        return false;
-      }
-      damageEnemy(first, spellDamage(spell, first), spell.name, spell.element);
-      addEffect(first.x, first.y, ELEMENT_COLORS.lightning, 8, "молния");
-      let jumpSource = first;
-      const hitIds = new Set([first.id]);
-      const maxJumps = spellUpgradeOverride(spell.id, "chainJumps", 1);
-      for (let jump = 1; jump <= maxJumps; jump += 1) {
-        const next = state.enemies
-          .filter((enemy) =>
-            enemy.hp > 0 &&
-            !hitIds.has(enemy.id) &&
-            isVisibleCell(enemy.x, enemy.y) &&
-            distance(enemy, jumpSource) <= 4
-          )
-          .sort((a, b) => distance(a, jumpSource) - distance(b, jumpSource))[0];
-        if (!next) {
-          break;
+      return castChainLightningSpell(spell, evolution);
+    }
+
+    if (spell.id === "dawnRay" && evolution?.id === "holyCircle") {
+      const targets = nearbyEnemies(state.player, evolution.radius);
+      let kills = 0;
+      targets.forEach((enemy) => {
+        const damage = Math.max(1, spellDamage(spell, enemy) - evolution.damagePenalty);
+        if (damageEnemy(enemy, damage, evolution.name, spell.element)) {
+          kills += 1;
         }
-        hitIds.add(next.id);
-        damageEnemy(next, Math.max(1, spellDamage(spell, next) - jump), "скачок молнии", spell.element);
-        addEffect(next.x, next.y, ELEMENT_COLORS.lightning, 8, "молния");
-        jumpSource = next;
-      }
+        addEffect(enemy.x, enemy.y, ELEMENT_COLORS.light, 8, "свет");
+      });
+      const heal = evolution.heal + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + kills;
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
+      state.player.shield += evolution.shield;
+      addLog(`Священный круг лечит ${heal} здоровья и дает ${evolution.shield} щита.`);
       return true;
     }
 
-    const target = firstEnemyOnLine(spell.range) || nearestEnemy(spell.range);
+    if (spell.id === "dawnRay" && evolution?.id === "dawnSpear") {
+      const targets = enemiesOnLine(spell.range);
+      if (!targets.length) {
+        addLog("Копье зари не нашло цель на линии.");
+        return false;
+      }
+      let kills = 0;
+      targets.forEach((enemy) => {
+        let damage = spellDamage(spell, enemy) + evolution.damageBonus;
+        if (enemy.tags.includes("undead")) {
+          damage += spellUpgradeOverride(spell.id, "undeadBonus", 2);
+        }
+        if (damageEnemy(enemy, damage, evolution.name, spell.element)) {
+          kills += 1;
+        }
+        addEffect(enemy.x, enemy.y, ELEMENT_COLORS.light, 8, "коп");
+      });
+      const heal = 1 + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + kills;
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
+      addLog(`Копье зари лечит ${heal} здоровья.`);
+      return true;
+    }
+
+    const target = spell.id === "shadowSpike" && evolution?.id === "twilightBlade"
+      ? nearestWoundedEnemy(spell.range) || firstEnemyOnLine(spell.range) || nearestEnemy(spell.range)
+      : firstEnemyOnLine(spell.range) || nearestEnemy(spell.range);
     if (!target) {
       addLog(`${spell.name}: нет цели в пределах действия.`);
       return false;
     }
 
     let damage = spellDamage(spell, target);
+    if (spell.id === "fireball" && evolution?.id === "solarMeteor") {
+      damage += evolution.damageBonus;
+      if (target.burn > 0) {
+        target.burn = 0;
+        damage += evolution.burnConsumeBonus;
+        addLog("Солнечный метеор поглощает горение цели.");
+      }
+    }
     if (spell.id === "shadowSpike" && target.hp < target.maxHp) {
       damage += 2 + state.player.shadowWoundBonus + spellUpgradeTotal(spell.id, "woundedBonus");
+      if (evolution?.id === "twilightBlade") {
+        damage += evolution.executeBonus;
+      }
     }
     if (spell.id === "dawnRay" && target.tags.includes("undead")) {
       damage += spellUpgradeOverride(spell.id, "undeadBonus", 2);
     }
 
-    const died = damageEnemy(target, damage, spell.name, spell.element);
+    const died = damageEnemy(target, damage, evolution?.id === "solarMeteor" ? evolution.name : spell.name, spell.element);
     addEffect(target.x, target.y, ELEMENT_COLORS[spell.element], 8, spell.name);
 
-    if (spell.id === "fireball" && target.hp > 0 && Math.random() < 0.45) {
-      target.burn = spellUpgradeOverride(spell.id, "burnTurns", 2);
-      addLog(`${target.name} горит.`);
+    if (spell.id === "fireball") {
+      if (evolution?.id === "pyroclast") {
+        state.hazards.push({
+          id: nextId(),
+          type: "fire",
+          x: target.x,
+          y: target.y,
+          radius: 1,
+          turns: evolution.hazardTurns,
+          damage: evolution.hazardDamage,
+          burnTurns: evolution.burnTurns,
+        });
+        if (!died && state.enemies.includes(target)) {
+          target.burn = Math.max(target.burn, evolution.burnTurns);
+        }
+        addLog("Пирокласт оставляет горящую область.");
+      } else if (evolution?.id !== "solarMeteor" && target.hp > 0 && Math.random() < 0.45) {
+        target.burn = spellUpgradeOverride(spell.id, "burnTurns", 2);
+        addLog(`${target.name} горит.`);
+      }
     }
-    if (spell.id === "iceShard" && target.hp > 0) {
-      const slowMin = spellUpgradeOverride(spell.id, "slowMin", 2);
-      const slowMax = spellUpgradeOverride(spell.id, "slowMax", 3);
-      target.slow = Math.max(target.slow, randomInt(slowMin, slowMax));
-      addLog(`${target.name} замедлен.`);
+
+    if (spell.id === "iceShard") {
+      if (evolution?.id === "icePrison" && !died && state.enemies.includes(target)) {
+        target.slow = Math.max(target.slow, evolution.slowTurns);
+        addLog(`${target.name} скован ледяной тюрьмой.`);
+      } else if (evolution?.id === "shardStorm") {
+        if (!died && state.enemies.includes(target)) {
+          target.slow = Math.max(target.slow, evolution.slowTurns);
+        }
+        nearbyEnemies(target, evolution.sideRadius, new Set([target.id]))
+          .slice(0, evolution.sideTargets)
+          .forEach((enemy) => {
+            const sideDamage = Math.max(1, spellDamage(spell, enemy) - evolution.sideDamagePenalty);
+            damageEnemy(enemy, sideDamage, evolution.name, spell.element);
+            if (state.enemies.includes(enemy)) {
+              enemy.slow = Math.max(enemy.slow, evolution.slowTurns);
+            }
+            addEffect(enemy.x, enemy.y, ELEMENT_COLORS.ice, 8, "лед");
+          });
+        addLog("Осколочная буря разлетается по ближайшим целям.");
+      } else if (target.hp > 0) {
+        const slowMin = spellUpgradeOverride(spell.id, "slowMin", 2);
+        const slowMax = spellUpgradeOverride(spell.id, "slowMax", 3);
+        target.slow = Math.max(target.slow, randomInt(slowMin, slowMax));
+        addLog(`${target.name} замедлен.`);
+      }
     }
+
     if (spell.id === "dawnRay") {
       const heal = 1 + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + (died ? 1 : 0);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
       addLog(`Луч рассвета лечит ${heal} здоровья.`);
     }
+
+    if (spell.id === "shadowSpike") {
+      if (evolution?.id === "twilightBlade" && died) {
+        state.pendingManaRefund += evolution.manaRefund;
+      } else if (evolution?.id === "cursedMark" && !died && state.enemies.includes(target)) {
+        target.curseMarkTurns = Math.max(target.curseMarkTurns, evolution.markTurns);
+        target.curseMarkHits = Math.max(target.curseMarkHits, evolution.markHits);
+        target.curseMarkBonus = Math.max(target.curseMarkBonus, evolution.markBonus);
+        addLog(`${target.name} отмечен проклятой меткой.`);
+      }
+    }
+
+    if (spell.id === "magicMissile") {
+      if (evolution?.id === "echoMissile") {
+        const echoTarget = nearbyEnemies(state.player, spell.range, new Set([target.id]))[0];
+        if (echoTarget) {
+          const echoDamage = Math.max(1, Math.round(spellDamage(spell, echoTarget) * evolution.echoMultiplier));
+          damageEnemy(echoTarget, echoDamage, evolution.name, spell.element);
+          addEffect(echoTarget.x, echoTarget.y, ELEMENT_COLORS.arcane, 8, "эхо");
+        }
+      } else if (evolution?.id === "manaNeedle" && died) {
+        state.pendingManaRefund += evolution.manaRefund;
+      }
+    }
+
     return true;
   }
 
@@ -2136,7 +2724,7 @@
     for (let step = 0; step < range; step += 1) {
       x += dir.x;
       y += dir.y;
-      if (!isWalkable(x, y)) {
+      if (!isWalkable(x, y) || barrierAt(x, y)) {
         return null;
       }
       const enemy = enemyAt(x, y);
@@ -2155,6 +2743,50 @@
         distance(enemy, state.player) <= range
       )
       .sort((a, b) => distance(a, state.player) - distance(b, state.player))[0] || null;
+  }
+
+  function enemiesOnLine(range) {
+    const dir = state.lastMoveDir;
+    if (!dir.x && !dir.y) {
+      return [];
+    }
+    const targets = [];
+    let x = state.player.x;
+    let y = state.player.y;
+    for (let step = 0; step < range; step += 1) {
+      x += dir.x;
+      y += dir.y;
+      if (!isWalkable(x, y) || barrierAt(x, y)) {
+        break;
+      }
+      const enemy = enemyAt(x, y);
+      if (enemy && isVisibleCell(enemy.x, enemy.y)) {
+        targets.push(enemy);
+      }
+    }
+    return targets;
+  }
+
+  function nearestWoundedEnemy(range) {
+    return state.enemies
+      .filter((enemy) =>
+        enemy.hp > 0 &&
+        enemy.hp < enemy.maxHp &&
+        isVisibleCell(enemy.x, enemy.y) &&
+        distance(enemy, state.player) <= range
+      )
+      .sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp) || distance(a, state.player) - distance(b, state.player))[0] || null;
+  }
+
+  function nearbyEnemies(center, range, excludeIds = new Set()) {
+    return state.enemies
+      .filter((enemy) =>
+        enemy.hp > 0 &&
+        !excludeIds.has(enemy.id) &&
+        isVisibleCell(enemy.x, enemy.y) &&
+        distance(enemy, center) <= range
+      )
+      .sort((a, b) => distance(a, center) - distance(b, center));
   }
 
   function adjustEnemyDamage(enemy, amount, element) {
@@ -2186,6 +2818,25 @@
     }
   }
 
+  function applyDamageVulnerabilities(enemy, amount) {
+    let finalAmount = amount;
+    if (finalAmount > 0 && enemy.acidTurns > 0) {
+      const bonus = enemy.acidBonus || 1;
+      finalAmount += bonus;
+      addLog(`${enemy.name}: кислота открывает слабое место (+${bonus}).`);
+    }
+    if (finalAmount > 0 && enemy.curseMarkTurns > 0 && enemy.curseMarkHits > 0) {
+      const bonus = enemy.curseMarkBonus || 2;
+      finalAmount += bonus;
+      enemy.curseMarkHits -= 1;
+      addLog(`${enemy.name}: проклятая метка усиливает удар (+${bonus}).`);
+      if (enemy.curseMarkHits <= 0) {
+        enemy.curseMarkTurns = 0;
+      }
+    }
+    return finalAmount;
+  }
+
   function removeEnemy(enemy) {
     state.enemies = state.enemies.filter((item) => item.id !== enemy.id);
   }
@@ -2196,7 +2847,8 @@
   }
 
   function damageEnemy(enemy, amount, source, element = null) {
-    const finalAmount = adjustEnemyDamage(enemy, amount, element);
+    const resistedAmount = adjustEnemyDamage(enemy, amount, element);
+    const finalAmount = applyDamageVulnerabilities(enemy, resistedAmount);
     enemy.hp -= finalAmount;
     addLog(`${enemy.name} получает ${finalAmount} урона (${source}).`);
     addEffect(enemy.x, enemy.y, element ? ELEMENT_COLORS[element] : "#ffffff", 6, String(finalAmount));
@@ -2244,6 +2896,13 @@
       return;
     }
     let remaining = amount;
+    if (state.player.damageReductionTurns > 0 && state.player.damageReduction > 0) {
+      const reduced = Math.min(remaining, state.player.damageReduction);
+      remaining -= reduced;
+      if (reduced > 0) {
+        addLog(`Гранитный панцирь снижает урон на ${reduced}.`);
+      }
+    }
     if (state.player.shield > 0) {
       const blocked = Math.min(state.player.shield, remaining);
       state.player.shield -= blocked;
@@ -2272,6 +2931,8 @@
     if (enemyPhase && state.mode === MODES.PLAYING) {
       actEnemies();
     }
+    tickBarriers();
+    tickPlayerStatuses();
     const regenEvery = state.player.manaRegenEvery;
     if (state.turn % regenEvery === 0 && state.player.mana < state.player.maxMana) {
       state.player.mana += 1;
@@ -2280,11 +2941,72 @@
     updateUI();
   }
 
+  function applyAcid(enemy, hazard) {
+    const turns = hazard.acidTurns || 0;
+    if (turns <= 0 || !state.enemies.includes(enemy)) {
+      return;
+    }
+    const wasAcidic = enemy.acidTurns > 0;
+    enemy.acidTurns = Math.max(enemy.acidTurns, turns);
+    enemy.acidBonus = Math.max(enemy.acidBonus || 0, hazard.acidBonus || 1);
+    if (!wasAcidic) {
+      addLog(`${enemy.name} покрыт кислотой.`);
+    }
+  }
+
+  function spreadPlagueCloud(cell, sourceHazard) {
+    state.hazards.push({
+      id: nextId(),
+      type: "poison",
+      x: cell.x,
+      y: cell.y,
+      radius: 1,
+      turns: sourceHazard.spreadTurns || 2,
+      damage: Math.max(1, sourceHazard.damage || 1),
+      spreadOnDeath: true,
+      spreadTurns: sourceHazard.spreadTurns || 2,
+    });
+    addEffect(cell.x, cell.y, ELEMENT_COLORS.poison, 8, "чума");
+    addLog("Чумное облако расползается от павшего врага.");
+  }
+
+  function tickBarriers() {
+    state.barriers.forEach((barrier) => {
+      barrier.turns -= 1;
+    });
+    state.barriers = state.barriers.filter((barrier) => barrier.turns > 0);
+  }
+
+  function tickPlayerStatuses() {
+    if (state.player.damageReductionTurns > 0) {
+      state.player.damageReductionTurns -= 1;
+      if (state.player.damageReductionTurns <= 0) {
+        state.player.damageReduction = 0;
+      }
+    }
+  }
+
   function tickHazardsAndStatuses() {
     state.hazards.forEach((hazard) => {
-      state.enemies.forEach((enemy) => {
+      [...state.enemies].forEach((enemy) => {
+        if (!state.enemies.includes(enemy)) {
+          return;
+        }
         if (distance(enemy, hazard) <= hazard.radius) {
-          damageEnemy(enemy, hazard.damage || 1, "ядовитое облако", "poison");
+          const deathCell = { x: enemy.x, y: enemy.y };
+          if (hazard.type === "fire") {
+            const died = damageEnemy(enemy, hazard.damage || 1, "пирокласт", "fire");
+            if (!died && state.enemies.includes(enemy)) {
+              enemy.burn = Math.max(enemy.burn, hazard.burnTurns || 2);
+            }
+          } else if (hazard.type === "poison" || hazard.type === "acid") {
+            const died = damageEnemy(enemy, hazard.damage || 1, hazard.label || "ядовитое облако", "poison");
+            if (died && hazard.spreadOnDeath) {
+              spreadPlagueCloud(deathCell, hazard);
+            } else if (!died && hazard.type === "acid") {
+              applyAcid(enemy, hazard);
+            }
+          }
         }
       });
       if (distance(state.player, hazard) <= hazard.radius && hazard.type === "danger") {
@@ -2308,6 +3030,19 @@
       }
       if (enemy.resistTurns > 0) {
         enemy.resistTurns -= 1;
+      }
+      if (enemy.acidTurns > 0) {
+        enemy.acidTurns -= 1;
+        if (enemy.acidTurns <= 0) {
+          enemy.acidBonus = 0;
+        }
+      }
+      if (enemy.curseMarkTurns > 0) {
+        enemy.curseMarkTurns -= 1;
+        if (enemy.curseMarkTurns <= 0) {
+          enemy.curseMarkHits = 0;
+          enemy.curseMarkBonus = 0;
+        }
       }
       if (enemy.burn > 0) {
         enemy.burn -= 1;
@@ -2336,6 +3071,11 @@
 
   function handleEnemyTurn(enemy) {
     if (!state.enemies.includes(enemy) || state.mode !== MODES.PLAYING) {
+      return;
+    }
+    if (enemy.stun > 0) {
+      enemy.stun -= 1;
+      addEffect(enemy.x, enemy.y, ELEMENT_COLORS.lightning, 5, "!");
       return;
     }
     if (enemy.slow > 0) {
@@ -2562,6 +3302,7 @@
     options.sort((a, b) => distance(a, state.player) - distance(b, state.player));
     const next = options.find((cell) =>
       isWalkable(cell.x, cell.y) &&
+      !barrierAt(cell.x, cell.y) &&
       !enemyAt(cell.x, cell.y) &&
       !(state.player.x === cell.x && state.player.y === cell.y) &&
       (!(enemy.summoned || enemy.minion || enemy.illusion) || !wouldLeavePlayerEscape(cell, enemy))
@@ -2589,7 +3330,7 @@
       if (x === to.x && y === to.y) {
         return true;
       }
-      if (!isWalkable(x, y)) {
+      if (!isWalkable(x, y) || barrierAt(x, y)) {
         return false;
       }
     }
@@ -2634,6 +3375,7 @@
     ctx.clearRect(0, 0, dom.canvas.width, dom.canvas.height);
     drawMap();
     drawHazards();
+    drawBarriers();
     drawObjects();
     drawEnemies();
     drawPlayer();
@@ -2741,10 +3483,35 @@
           if (!isVisibleCell(x, y)) {
             continue;
           }
-          ctx.fillStyle = hazard.type === "danger" ? "rgba(232, 78, 75, 0.42)" : CONFIG.colors.hazard;
+          if (hazard.type === "danger") {
+            ctx.fillStyle = "rgba(232, 78, 75, 0.42)";
+          } else if (hazard.type === "fire") {
+            ctx.fillStyle = "rgba(255, 112, 67, 0.38)";
+          } else if (hazard.type === "acid") {
+            ctx.fillStyle = "rgba(181, 231, 71, 0.36)";
+          } else {
+            ctx.fillStyle = CONFIG.colors.hazard;
+          }
           ctx.fillRect(x * size + 3, y * size + 3, size - 6, size - 6);
         }
       }
+    });
+  }
+
+  function drawBarriers() {
+    const size = CONFIG.tileSize;
+    state.barriers.forEach((barrier) => {
+      if (!isVisibleCell(barrier.x, barrier.y)) {
+        return;
+      }
+      const x = barrier.x * size;
+      const y = barrier.y * size;
+      ctx.fillStyle = "rgba(180, 134, 91, 0.78)";
+      ctx.fillRect(x + 4, y + 4, size - 8, size - 8);
+      ctx.strokeStyle = "#efd0a7";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 5, y + 5, size - 10, size - 10);
+      ctx.lineWidth = 1;
     });
   }
 
@@ -2851,19 +3618,53 @@
       const spell = SPELLS[spellId];
       const level = spellLevel(spellId);
       const upgrade = nextSpellUpgrade(spellId);
+      const evolution = spellEvolution(spellId);
+      const evolutions = evolutionOptions(spellId);
+      const awaitingEvolution = state.evolutionChoiceSpellId === spellId;
       const canUpgrade = Boolean(upgrade && state.player.magicShards >= upgrade.cost);
-      const statusText = !upgrade
-        ? "Максимальный уровень"
-        : canUpgrade
+      const canEvolve = canEvolveSpell(spellId);
+      const upgradeInfo = upgrade
+        ? `До ур. ${level + 1}: ${upgrade.cost} осколок - ${upgrade.text}`
+        : evolution
+          ? "Эволюция выбрана."
+          : "Уровень 3 открыт для эволюции.";
+      const evolutionInfo = evolution
+        ? `<div class="spell-evolution is-chosen">Эволюция: <strong>${evolution.name}</strong> - ${evolution.description}</div>`
+        : level >= MAX_SPELL_LEVEL && evolutions.length
+          ? `<div class="spell-evolution">
+              <div><strong>1. ${evolutions[0].name}</strong> - ${evolutions[0].description}</div>
+              <div><strong>2. ${evolutions[1].name}</strong> - ${evolutions[1].description}</div>
+              <span>Стоимость: ${EVOLUTION_COST} осколок</span>
+            </div>`
+          : "";
+      const statusText = upgrade
+        ? canUpgrade
           ? state.upgradeMode ? `Нажмите ${index + 1}, чтобы улучшить` : "Можно улучшить"
-          : "Не хватает осколков";
-      const statusClass = !upgrade ? "is-max" : canUpgrade ? "is-ready" : "is-locked";
+          : "Не хватает осколков"
+        : evolution
+          ? "Ветка выбрана"
+          : level >= MAX_SPELL_LEVEL && evolutions.length
+            ? canEvolve
+              ? awaitingEvolution
+                ? "1/2 - выбрать ветку, 3 - отмена"
+                : state.upgradeMode ? `Нажмите ${index + 1}, чтобы выбрать эволюцию` : "Можно эволюционировать"
+              : `Нужен ${EVOLUTION_COST} осколок для эволюции`
+            : "Максимальный уровень";
+      const statusClass = evolution
+        ? "is-evolved"
+        : upgrade
+          ? canUpgrade ? "is-ready" : "is-locked"
+          : canEvolve || awaitingEvolution
+            ? "is-ready"
+            : level >= MAX_SPELL_LEVEL && evolutions.length ? "is-locked" : "is-max";
       const card = document.createElement("div");
       card.className = [
         "spell-card",
         index === state.selectedSpellIndex ? "is-active" : "",
         state.upgradeMode ? "is-upgrade-mode" : "",
-        canUpgrade ? "can-upgrade" : "",
+        awaitingEvolution ? "is-evolution-choice" : "",
+        canUpgrade || canEvolve ? "can-upgrade" : "",
+        evolution ? "is-evolved" : "",
       ].filter(Boolean).join(" ");
       card.innerHTML = `
         <div class="spell-title">
@@ -2875,8 +3676,9 @@
         </div>
         <div class="spell-meta">${spell.description}</div>
         <div class="spell-upgrade">
-          ${upgrade ? `До ур. ${level + 1}: ${upgrade.cost} осколок - ${upgrade.text}` : "Дальше только эволюция."}
+          ${upgradeInfo}
         </div>
+        ${evolutionInfo}
         <div class="spell-upgrade-status ${statusClass}">${statusText}</div>
       `;
       dom.spellList.appendChild(card);
