@@ -277,6 +277,29 @@ canvas {
   box-shadow: inset 0 0 0 1px rgba(214, 92, 255, 0.12);
 }
 
+.artifact-card.rarity-rare {
+  border-color: #4d86c7;
+}
+
+.artifact-card.rarity-epic {
+  border-color: #8d62d9;
+  box-shadow: inset 0 0 0 1px rgba(141, 98, 217, 0.16);
+}
+
+.artifact-card.rarity-legendary {
+  border-color: #d5a33d;
+  box-shadow: inset 0 0 0 1px rgba(244, 211, 94, 0.18);
+}
+
+.artifact-card.rarity-boss-relic {
+  border-color: #ef6f8f;
+}
+
+.artifact-card.is-spent {
+  opacity: 0.72;
+  filter: grayscale(0.35);
+}
+
 .artifact-title {
   display: flex;
   justify-content: space-between;
@@ -293,14 +316,37 @@ canvas {
   flex: 0 0 auto;
   color: #f4d35e;
   font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .artifact-card.is-cursed .artifact-title strong {
   color: #ff95de;
 }
 
+.artifact-card.rarity-common .artifact-title strong {
+  color: #cfd7e4;
+}
+
+.artifact-card.rarity-rare .artifact-title strong {
+  color: #8fc7ff;
+}
+
+.artifact-card.rarity-epic .artifact-title strong {
+  color: #c59cff;
+}
+
+.artifact-card.rarity-legendary .artifact-title strong {
+  color: #ffd66d;
+}
+
+.artifact-card.rarity-boss-relic .artifact-title strong {
+  color: #ff9ab0;
+}
+
 .artifact-meta,
-.artifact-curse {
+.artifact-curse,
+.artifact-state {
   color: #c5cdda;
   font-size: 12px;
   line-height: 1.35;
@@ -309,6 +355,11 @@ canvas {
 .artifact-curse {
   margin-top: 4px;
   color: #ffb0ba;
+}
+
+.artifact-state {
+  margin-top: 4px;
+  color: #b8c0cc;
 }
 
 .spell-list {

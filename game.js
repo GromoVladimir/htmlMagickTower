@@ -75,6 +75,15 @@
     arcane: "магии",
   };
 
+  const ARTIFACT_RARITY_LABELS = {
+    common: "Обычный",
+    rare: "Редкий",
+    epic: "Эпический",
+    legendary: "Легендарный",
+    cursed: "Проклятый",
+    bossRelic: "Босс-реликвия",
+  };
+
   const SPELLS = {
     fireball: {
       id: "fireball",
@@ -570,6 +579,8 @@
       id: "focusShard",
       name: "Осколок фокуса",
       bonusText: "+1 к урону всех заклинаний.",
+      tier: 1,
+      rarity: "rare",
       cursed: false,
       apply(player) {
         player.flatSpellBonus += 1;
@@ -579,6 +590,8 @@
       id: "moonVessel",
       name: "Лунный сосуд",
       bonusText: "+3 к максимальной мане.",
+      tier: 1,
+      rarity: "common",
       cursed: false,
       apply(player) {
         changeMaxMana(player, 3);
@@ -588,6 +601,8 @@
       id: "warmAmulet",
       name: "Теплый амулет",
       bonusText: "+2 к максимальному здоровью.",
+      tier: 1,
+      rarity: "common",
       cursed: false,
       apply(player) {
         changeMaxHp(player, 2);
@@ -597,6 +612,8 @@
       id: "scoutLens",
       name: "Линза разведчика",
       bonusText: "+1 к обзору, книги, сундуки и артефакты подсвечиваются рядом.",
+      tier: 1,
+      rarity: "common",
       cursed: false,
       apply(player) {
         player.visionBonus += 1;
@@ -606,22 +623,240 @@
     {
       id: "stoneSeal",
       name: "Каменная печать",
-      bonusText: "Каменная броня дает на 1 щит больше, +2 к максимальной мане.",
+      bonusText: "+2 к максимальной мане. Если есть земля: Каменная броня дает +1 щит.",
+      tier: 1,
+      rarity: "rare",
       cursed: false,
       apply(player) {
-        player.earthShieldBonus += 1;
         changeMaxMana(player, 2);
+      },
+      refreshFlags(player, flags) {
+        if (hasElementSpell(player, "earth")) {
+          flags.earthShieldBonus += 1;
+        }
       },
     },
     {
       id: "windCharm",
       name: "Ветряной оберег",
-      bonusText: "Порыв ветра отталкивает сильнее, посох наносит +1 урон, +2 к максимальной мане.",
+      bonusText: "+1 урон посохом и +2 к максимальной мане. Если есть ветер: Порыв ветра отталкивает сильнее.",
+      tier: 1,
+      rarity: "rare",
       cursed: false,
       apply(player) {
-        player.windPushBonus += 1;
         player.staffDamage += 1;
         changeMaxMana(player, 2);
+      },
+      refreshFlags(player, flags) {
+        if (hasElementSpell(player, "wind")) {
+          flags.windPushBonus += 1;
+        }
+      },
+    },
+    {
+      id: "salamanderSeal",
+      name: "Печать саламандры",
+      bonusText: "+2 к максимальной мане. Если есть огонь: горение длится на 1 ход дольше. Если огонь эволюционировал: огонь наносит +1 урон горящим врагам.",
+      tier: 2,
+      rarity: "rare",
+      cursed: false,
+      apply(player) {
+        changeMaxMana(player, 2);
+      },
+      refreshFlags(player, flags) {
+        if (hasElementSpell(player, "fire")) {
+          flags.fireBurnBonusTurns += 1;
+        }
+        if (hasElementEvolution(player, "fire")) {
+          flags.fireDamageToBurning += 1;
+        }
+      },
+    },
+    {
+      id: "stormHeart",
+      name: "Сердце грозы",
+      bonusText: "+1 к максимальной мане и +1 к обзору. Если есть молния: цепная молния делает +1 скачок. Если молния эволюционировала: молния наносит +1 урон.",
+      tier: 2,
+      rarity: "rare",
+      cursed: false,
+      apply(player) {
+        changeMaxMana(player, 1);
+        player.visionBonus += 1;
+      },
+      refreshFlags(player, flags) {
+        if (hasElementSpell(player, "lightning")) {
+          flags.lightningChainBonus += 1;
+        }
+        if (hasElementEvolution(player, "lightning")) {
+          flags.lightningDamageBonus += 1;
+        }
+      },
+    },
+    {
+      id: "iceLens",
+      name: "Ледяная линза",
+      bonusText: "+1 щит при входе на этаж. Если есть лед: замедленные враги получают +1 урон от льда. Если лед эволюционировал: ледяное замедление длится на 1 ход дольше.",
+      tier: 2,
+      rarity: "rare",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.floorStartShield += 1;
+        if (hasElementSpell(player, "ice")) {
+          flags.iceDamageToSlowed += 1;
+        }
+        if (hasElementEvolution(player, "ice")) {
+          flags.iceSlowBonusTurns += 1;
+        }
+      },
+    },
+    {
+      id: "duskMask",
+      name: "Маска сумрака",
+      bonusText: "Раз за этаж убийство врага восстанавливает 1 ману. Если есть тьма: убийство тьмой восстанавливает еще 1 ману. Если тьма эволюционировала: после убийства тьмой следующее заклинание получает +1 урон.",
+      tier: 2,
+      rarity: "rare",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.floorKillMana += 1;
+        if (hasElementSpell(player, "shadow")) {
+          flags.shadowKillManaBonus += 1;
+        }
+        if (hasElementEvolution(player, "shadow")) {
+          flags.shadowKillNextSpellDamage += 1;
+        }
+      },
+    },
+    {
+      id: "livingRoot",
+      name: "Живой корень",
+      bonusText: "+2 к максимальному здоровью. Если есть яд: ядовитое облако длится на 1 ход дольше. Если яд эволюционировал: яд и кислота наносят +1 урон.",
+      tier: 2,
+      rarity: "common",
+      cursed: false,
+      apply(player) {
+        changeMaxHp(player, 2);
+      },
+      refreshFlags(player, flags) {
+        if (hasElementSpell(player, "poison")) {
+          flags.poisonHazardTurns += 1;
+        }
+        if (hasElementEvolution(player, "poison")) {
+          flags.poisonHazardDamage += 1;
+        }
+      },
+    },
+    {
+      id: "galeFeather",
+      name: "Перо вихря",
+      bonusText: "После полученного урона раз в 4 хода дает 1 щит. Если есть ветер: заклинания ветра дают +1 щит. Если ветер эволюционировал: заклинания ветра дают +2 щита.",
+      tier: 2,
+      rarity: "rare",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.damageShield += 1;
+        flags.damageShieldCooldown = Math.max(flags.damageShieldCooldown, 4);
+        if (hasElementSpell(player, "wind")) {
+          flags.windSpellShield += hasElementEvolution(player, "wind") ? 2 : 1;
+        }
+      },
+    },
+    {
+      id: "sevenElementsCrown",
+      name: "Корона семи стихий",
+      bonusText: "+1 к урону всех заклинаний. Если использовать разные стихии подряд, второе заклинание стоит на 1 ману дешевле.",
+      tier: 3,
+      rarity: "legendary",
+      cursed: false,
+      apply(player) {
+        player.flatSpellBonus += 1;
+      },
+      refreshFlags(player, flags) {
+        flags.alternatingElementDiscount = Math.max(flags.alternatingElementDiscount, 1);
+      },
+    },
+    {
+      id: "blackSun",
+      name: "Черное солнце",
+      bonusText: "+2 к максимальной мане. Если есть свет или тьма: эти заклинания наносят +1 урон. Если они эволюционировали: свет лечит на 1 больше, тьма сильнее добивает раненых.",
+      tier: 3,
+      rarity: "epic",
+      cursed: false,
+      apply(player) {
+        changeMaxMana(player, 2);
+      },
+      refreshFlags(player, flags) {
+        if (hasElementSpell(player, "light")) {
+          flags.lightDamageBonus += 1;
+        }
+        if (hasElementSpell(player, "shadow")) {
+          flags.shadowDamageBonus += 1;
+        }
+        if (hasElementEvolution(player, "light")) {
+          flags.lightHealBonus += 1;
+        }
+        if (hasElementEvolution(player, "shadow")) {
+          flags.shadowWoundBonus += 1;
+        }
+      },
+    },
+    {
+      id: "archmageVessel",
+      name: "Сосуд архимага",
+      bonusText: "+6 к максимальной мане. Первое заклинание на каждом этаже стоит на 1 ману дешевле.",
+      tier: 3,
+      rarity: "epic",
+      cursed: false,
+      apply(player) {
+        changeMaxMana(player, 6);
+      },
+      refreshFlags(player, flags) {
+        flags.firstSpellDiscount = Math.max(flags.firstSpellDiscount, 1);
+      },
+    },
+    {
+      id: "ashenHeart",
+      name: "Пепельное сердце",
+      bonusText: "+1 урон по врагам с негативным статусом. Если есть огонь: огонь наносит еще +1 урон горящим врагам. Если огонь эволюционировал: горение наносит +1 урон.",
+      tier: 3,
+      rarity: "epic",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.statusDamageBonus += 1;
+        if (hasElementSpell(player, "fire")) {
+          flags.fireDamageToBurning += 1;
+        }
+        if (hasElementEvolution(player, "fire")) {
+          flags.burnTickBonus += 1;
+        }
+      },
+    },
+    {
+      id: "firstMageMirror",
+      name: "Зеркало первого мага",
+      bonusText: "Первое заклинание на каждом этаже срабатывает дважды. После этого восстанавливается 1 мана.",
+      tier: 3,
+      rarity: "legendary",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.firstSpellEcho = true;
+        flags.firstSpellEchoManaRefund = Math.max(flags.firstSpellEchoManaRefund, 1);
+      },
+    },
+    {
+      id: "lastChanceStone",
+      name: "Камень последнего шанса",
+      bonusText: "При смертельном уроне маг остается с 1 здоровьем и получает 2 щита. После срабатывания артефакт становится неактивным.",
+      tier: 3,
+      rarity: "legendary",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.lastChance = true;
       },
     },
     {
@@ -629,6 +864,8 @@
       name: "Треснувшая корона",
       bonusText: "+35% урона заклинаниями.",
       curseText: "-2 к максимальному здоровью.",
+      tier: 1,
+      rarity: "cursed",
       cursed: true,
       apply(player) {
         player.spellDamageMultiplier += 0.35;
@@ -640,6 +877,8 @@
       name: "Бездонный сосуд",
       bonusText: "+7 к максимальной мане.",
       curseText: "Мана восстанавливается на 1 ход реже.",
+      tier: 3,
+      rarity: "cursed",
       cursed: true,
       apply(player) {
         changeMaxMana(player, 7);
@@ -651,6 +890,8 @@
       name: "Зрячий шип",
       bonusText: "+2 к обзору и +1 к урону всех заклинаний.",
       curseText: "-3 к максимальной мане.",
+      tier: 2,
+      rarity: "cursed",
       cursed: true,
       apply(player) {
         player.visionBonus += 2;
@@ -663,6 +904,8 @@
       name: "Сердце гранита",
       bonusText: "+5 к максимальному здоровью.",
       curseText: "-1 к обзору.",
+      tier: 1,
+      rarity: "cursed",
       cursed: true,
       apply(player) {
         changeMaxHp(player, 5);
@@ -674,6 +917,8 @@
       name: "Черная мантия",
       bonusText: "+2 к урону всех заклинаний.",
       curseText: "Все заклинания стоят на 1 ману больше.",
+      tier: 3,
+      rarity: "cursed",
       cursed: true,
       apply(player) {
         player.flatSpellBonus += 2;
@@ -801,21 +1046,21 @@
       name: "Каменный порог",
       floorRange: [1, 5],
       enemyPool: "tower",
-      artifactPool: "tower",
+      artifactPool: "stoneThreshold",
     },
     {
       id: "mirrorHalls",
       name: "Зеркальные залы",
       floorRange: [6, 10],
       enemyPool: "tower",
-      artifactPool: "tower",
+      artifactPool: "mirrorHalls",
     },
     {
       id: "towerHeart",
       name: "Сердце башни",
       floorRange: [11, 15],
       enemyPool: "tower",
-      artifactPool: "tower",
+      artifactPool: "towerHeart",
     },
   ];
 
@@ -1083,9 +1328,20 @@
   };
 
   const ARTIFACT_POOLS_BY_ACT = {
-    tower: {
-      clean: ["focusShard", "moonVessel", "warmAmulet", "scoutLens", "stoneSeal", "windCharm"],
-      cursed: ["crackedCrown", "bottomlessVessel", "watchingThorn", "graniteHeart", "blackMantle"],
+    stoneThreshold: {
+      tierWeights: [{ tier: 1, weight: 1 }],
+    },
+    mirrorHalls: {
+      tierWeights: [
+        { tier: 1, weight: 0.3 },
+        { tier: 2, weight: 0.7 },
+      ],
+    },
+    towerHeart: {
+      tierWeights: [
+        { tier: 2, weight: 0.3 },
+        { tier: 3, weight: 0.7 },
+      ],
     },
   };
 
@@ -1167,6 +1423,7 @@
     evolutionChoiceSpellId: null,
     evolutionChoiceSlotIndex: null,
     pendingManaRefund: 0,
+    currentSpellDamageBonus: 0,
     idCounter: 1,
     lastMoveDir: { x: 1, y: 0 },
   };
@@ -1177,6 +1434,22 @@
 
   function sample(list) {
     return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function sampleWeighted(entries) {
+    const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * total;
+    for (const entry of entries) {
+      roll -= entry.weight;
+      if (roll <= 0) {
+        return entry;
+      }
+    }
+    return entries[entries.length - 1];
+  }
+
+  function cssClassToken(value) {
+    return String(value).replace(/[A-Z]/g, "-$&").toLowerCase();
   }
 
   function clamp(value, min, max) {
@@ -1211,7 +1484,19 @@
   function spellCost(spell) {
     const evolution = spellEvolution(spell.id);
     const evolutionCost = evolution?.costModifier || 0;
-    return Math.max(0, spell.cost + (state.player?.spellCostModifier || 0) + evolutionCost);
+    const flags = artifactFlags();
+    let artifactDiscount = 0;
+    if (flags.firstSpellDiscount > 0 && state.player?.spellsCastThisFloor === 0) {
+      artifactDiscount += flags.firstSpellDiscount;
+    }
+    if (
+      flags.alternatingElementDiscount > 0 &&
+      state.player?.lastSpellElement &&
+      state.player.lastSpellElement !== spell.element
+    ) {
+      artifactDiscount += flags.alternatingElementDiscount;
+    }
+    return Math.max(0, spell.cost + (state.player?.spellCostModifier || 0) + evolutionCost - artifactDiscount);
   }
 
   function spellLevel(spellId) {
@@ -1243,6 +1528,83 @@
 
   function hasEvolution(spellId) {
     return Boolean(spellEvolution(spellId));
+  }
+
+  function playerSpellEvolution(player, spellId) {
+    if (!player?.spellEvolutions) {
+      return null;
+    }
+    return evolutionById(spellId, player.spellEvolutions[spellId]);
+  }
+
+  function hasElementSpell(player, element) {
+    return Boolean(player?.spells?.some((spellId) => SPELLS[spellId]?.element === element));
+  }
+
+  function hasElementEvolution(player, element) {
+    return Boolean(player?.spells?.some((spellId) =>
+      SPELLS[spellId]?.element === element && playerSpellEvolution(player, spellId)
+    ));
+  }
+
+  function createArtifactFlags() {
+    return {
+      earthShieldBonus: 0,
+      windPushBonus: 0,
+      floorStartShield: 0,
+      floorKillMana: 0,
+      fireBurnBonusTurns: 0,
+      fireDamageToBurning: 0,
+      lightningChainBonus: 0,
+      lightningDamageBonus: 0,
+      iceDamageToSlowed: 0,
+      iceSlowBonusTurns: 0,
+      shadowKillManaBonus: 0,
+      shadowKillNextSpellDamage: 0,
+      poisonHazardTurns: 0,
+      poisonHazardDamage: 0,
+      damageShield: 0,
+      damageShieldCooldown: 0,
+      windSpellShield: 0,
+      alternatingElementDiscount: 0,
+      lightDamageBonus: 0,
+      shadowDamageBonus: 0,
+      lightHealBonus: 0,
+      shadowWoundBonus: 0,
+      firstSpellDiscount: 0,
+      statusDamageBonus: 0,
+      burnTickBonus: 0,
+      firstSpellEcho: false,
+      firstSpellEchoManaRefund: 0,
+      lastChance: false,
+    };
+  }
+
+  function activeOwnedArtifacts(player = state.player) {
+    return (player?.artifacts || []).filter((artifact) => artifact.active !== false && !artifact.spent);
+  }
+
+  function ownedArtifactById(id, player = state.player) {
+    const artifacts = player?.artifacts || [];
+    return artifacts.find((artifact) => artifact.id === id && artifact.active !== false && !artifact.spent) ||
+      artifacts.find((artifact) => artifact.id === id);
+  }
+
+  function refreshArtifactFlags(player = state.player) {
+    if (!player) {
+      return createArtifactFlags();
+    }
+    const flags = createArtifactFlags();
+    activeOwnedArtifacts(player).forEach((ownedArtifact) => {
+      const artifact = artifactById(ownedArtifact.id);
+      artifact?.refreshFlags?.(player, flags);
+    });
+    player.artifactFlags = flags;
+    return flags;
+  }
+
+  function artifactFlags() {
+    return state.player?.artifactFlags || createArtifactFlags();
   }
 
   function canEvolveSpell(spellId) {
@@ -1323,20 +1685,55 @@
     return pool?.byFloor?.[floor] || pool?.default || [];
   }
 
-  function getArtifactPoolForFloor(floor, cursed) {
+  function getArtifactPoolConfigForFloor(floor) {
     const act = getActForFloor(floor);
-    const pool = ARTIFACT_POOLS_BY_ACT[act.artifactPool];
-    const ids = cursed ? pool?.cursed : pool?.clean;
-    const artifacts = (ids || []).map(artifactById).filter(Boolean);
-    return artifacts.length ? artifacts : ARTIFACTS.filter((artifact) => artifact.cursed === cursed);
+    return ARTIFACT_POOLS_BY_ACT[act.artifactPool] || ARTIFACT_POOLS_BY_ACT[act.id];
+  }
+
+  function chooseArtifactTier(floor) {
+    const pool = getArtifactPoolConfigForFloor(floor);
+    const tierWeights = pool?.tierWeights || [{ tier: 1, weight: 1 }];
+    return sampleWeighted(tierWeights).tier;
+  }
+
+  function getArtifactPoolForFloor(floor, cursed, tier = null) {
+    const pool = getArtifactPoolConfigForFloor(floor);
+    const tierWeights = pool?.tierWeights || [{ tier: 1, weight: 1 }];
+    const allowedTiers = tierWeights.map((entry) => entry.tier);
+    const tiers = tier ? [tier] : allowedTiers;
+    const artifacts = ARTIFACTS.filter((artifact) =>
+      artifact.rarity !== "bossRelic" &&
+      artifact.cursed === cursed &&
+      tiers.includes(artifact.tier)
+    );
+    if (artifacts.length || !tier) {
+      return artifacts;
+    }
+    return ARTIFACTS.filter((artifact) =>
+      artifact.rarity !== "bossRelic" &&
+      artifact.cursed === cursed &&
+      allowedTiers.includes(artifact.tier)
+    );
   }
 
   function chooseArtifact(cursed) {
-    const pool = getArtifactPoolForFloor(state.floor, cursed);
+    const tier = chooseArtifactTier(state.floor);
+    const pool = getArtifactPoolForFloor(state.floor, cursed, tier);
     const uncollected = pool.filter((artifact) =>
       !state.player.artifacts.some((owned) => owned.id === artifact.id)
     );
-    return sample(uncollected.length ? uncollected : pool);
+    if (uncollected.length) {
+      return sample(uncollected);
+    }
+    const actPool = getArtifactPoolForFloor(state.floor, cursed);
+    const actUncollected = actPool.filter((artifact) =>
+      !state.player.artifacts.some((owned) => owned.id === artifact.id)
+    );
+    const fallbackPool = ARTIFACTS.filter((artifact) =>
+      artifact.rarity !== "bossRelic" &&
+      artifact.cursed === cursed
+    );
+    return sample(actUncollected.length ? actUncollected : pool.length ? pool : fallbackPool);
   }
 
   function addLog(message) {
@@ -1390,6 +1787,12 @@
       damageReduction: 0,
       damageReductionTurns: 0,
       visionBonus: 0,
+      artifactFlags: createArtifactFlags(),
+      artifactKillManaAvailable: true,
+      windFeatherCooldown: 0,
+      spellsCastThisFloor: 0,
+      lastSpellElement: null,
+      nextSpellDamageBonus: 0,
       artifacts: [],
       trait: null,
     };
@@ -1411,6 +1814,7 @@
     state.evolutionChoiceSpellId = null;
     state.evolutionChoiceSlotIndex = null;
     state.pendingManaRefund = 0;
+    state.currentSpellDamageBonus = 0;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
 
@@ -1440,9 +1844,17 @@
     state.player.y = floorData.start.y;
     state.player.floorBlockAvailable = state.player.blocksFirstHit;
     state.player.freeSpellAvailable = state.player.freeFirstSpell;
+    state.player.spellsCastThisFloor = 0;
+    state.player.artifactKillManaAvailable = true;
+    refreshArtifactFlags();
     state.player.mana = Math.min(state.player.maxMana, state.player.mana + REWARD_RULES.floorManaRestore);
     placeFloorContent(floorData);
     updateVision();
+    const floorStartShield = artifactFlags().floorStartShield;
+    if (floorStartShield > 0) {
+      state.player.shield += floorStartShield;
+      addLog(`Артефакты дают ${floorStartShield} щита при входе на этаж.`);
+    }
     if (floor === 1) {
       addLog("Первый этаж башни складывается из камня и тени.");
     } else {
@@ -1643,6 +2055,9 @@
         continue;
       }
       const artifact = chooseArtifact(Math.random() < rules.cursedArtifactChance);
+      if (!artifact) {
+        continue;
+      }
       state.objects.push({
         id: nextId(),
         type: EVENT_TYPES.ARTIFACT,
@@ -2065,6 +2480,7 @@
 
     state.player.magicShards -= EVOLUTION_COST;
     state.player.spellEvolutions[spellId] = branch.id;
+    refreshArtifactFlags();
     clearEvolutionChoice();
     addLog(`${spell.name} эволюционирует: ${branch.name}. ${branch.logText}`);
     updateUI();
@@ -2273,8 +2689,13 @@
       name: artifact.name,
       bonusText: artifact.bonusText,
       curseText: artifact.curseText || "",
+      tier: artifact.tier,
+      rarity: artifact.rarity,
       cursed: artifact.cursed,
+      active: true,
+      spent: false,
     });
+    refreshArtifactFlags();
     state.objects = state.objects.filter((item) => item.id !== object.id);
     addLog(`${artifact.cursed ? "Проклятый артефакт" : "Артефакт"}: ${artifact.name}. ${artifact.bonusText}`);
     if (artifact.cursed) {
@@ -2293,9 +2714,18 @@
     } else {
       state.player.spells.push(book.spellId);
       state.player.spellLevels[book.spellId] = SPELLS[book.spellId].level;
+      refreshArtifactFlags();
       addLog("Вы изучили новое заклинание.");
     }
     state.objects = state.objects.filter((object) => object.id !== book.id);
+  }
+
+  function applyArtifactAfterSpellCast(spell) {
+    const flags = artifactFlags();
+    if (spell.element === "wind" && flags.windSpellShield > 0) {
+      state.player.shield += flags.windSpellShield;
+      addLog(`Перо вихря дает ${flags.windSpellShield} щита за заклинание ветра.`);
+    }
   }
 
   function castSelectedSpell() {
@@ -2314,8 +2744,21 @@
 
     // Общий вход для заклинаний держит цену, лог и передачу хода в одном месте.
     state.pendingManaRefund = 0;
+    state.currentSpellDamageBonus = state.player.nextSpellDamageBonus || 0;
+    const flags = artifactFlags();
+    const shouldEchoFirstSpell = flags.firstSpellEcho && state.player.spellsCastThisFloor === 0;
     const acted = castSpell(spell);
     if (acted) {
+      state.player.nextSpellDamageBonus = 0;
+      applyArtifactAfterSpellCast(spell);
+      if (shouldEchoFirstSpell && state.mode === MODES.PLAYING) {
+        addLog("Зеркало первого мага повторяет первое заклинание этажа.");
+        const echoed = castSpell(spell);
+        if (echoed) {
+          applyArtifactAfterSpellCast(spell);
+          state.pendingManaRefund += flags.firstSpellEchoManaRefund;
+        }
+      }
       if (!isFree) {
         state.player.mana -= cost;
       } else {
@@ -2325,11 +2768,16 @@
       if (state.pendingManaRefund > 0) {
         const refund = state.pendingManaRefund;
         state.player.mana = Math.min(state.player.maxMana, state.player.mana + refund);
-        addLog(`Эволюция возвращает ${refund} маны.`);
+        addLog(`Магия возвращает ${refund} маны.`);
       }
       state.pendingManaRefund = 0;
+      state.currentSpellDamageBonus = 0;
+      state.player.spellsCastThisFloor += 1;
+      state.player.lastSpellElement = spell.element;
       addEffect(state.player.x, state.player.y, ELEMENT_COLORS[spell.element], 5, spell.name);
       advanceTurn();
+    } else {
+      state.currentSpellDamageBonus = 0;
     }
   }
 
@@ -2357,9 +2805,10 @@
 
     let jumpSource = first;
     const hitIds = new Set([first.id]);
-    const baseJumps = spellUpgradeOverride(spell.id, "chainJumps", 1);
+    const lightningChainBonus = artifactFlags().lightningChainBonus || 0;
+    const baseJumps = spellUpgradeOverride(spell.id, "chainJumps", 1) + lightningChainBonus;
     const maxJumps = evolution?.id === "overload"
-      ? evolution.maxJumps
+      ? evolution.maxJumps + lightningChainBonus
       : baseJumps + (evolution?.id === "stormChain" ? evolution.jumpBonus : 0);
     const jumpRange = evolution?.jumpRange || 4;
 
@@ -2459,10 +2908,12 @@
 
   function castSpell(spell) {
     const evolution = spellEvolution(spell.id);
+    const flags = artifactFlags();
 
     if (spell.id === "stoneArmor") {
       const amount = 3 +
         state.player.earthShieldBonus +
+        flags.earthShieldBonus +
         spellUpgradeTotal(spell.id, "shieldBonus") +
         (evolution?.shieldBonus || 0);
       state.player.shield += amount;
@@ -2503,7 +2954,10 @@
         if (died || !state.enemies.includes(enemy)) {
           return;
         }
-        const pushSteps = 2 + state.player.windPushBonus + (evolution?.id === "hurricaneWall" ? evolution.pushBonus : 0);
+        const pushSteps = 2 +
+          state.player.windPushBonus +
+          flags.windPushBonus +
+          (evolution?.id === "hurricaneWall" ? evolution.pushBonus : 0);
         const pushResult = pushEnemy(enemy, pushSteps);
         const collisionDamage = spellUpgradeTotal(spell.id, "collisionDamage") +
           (evolution?.id === "hurricaneWall" ? evolution.collisionDamageBonus : 0);
@@ -2529,8 +2983,8 @@
         x: safeCenter.x,
         y: safeCenter.y,
         radius: 1,
-        turns: 3 + state.player.poisonBonusTurns + spellUpgradeTotal(spell.id, "hazardTurnsBonus"),
-        damage: spellUpgradeOverride(spell.id, "hazardDamage", 1),
+        turns: 3 + state.player.poisonBonusTurns + spellUpgradeTotal(spell.id, "hazardTurnsBonus") + flags.poisonHazardTurns,
+        damage: spellUpgradeOverride(spell.id, "hazardDamage", 1) + flags.poisonHazardDamage,
         label: evolution?.id === "acidMist" ? "кислотный туман" : "ядовитое облако",
       };
       if (evolution?.id === "plagueCloud") {
@@ -2563,7 +3017,7 @@
         }
         addEffect(enemy.x, enemy.y, ELEMENT_COLORS.light, 8, "свет");
       });
-      const heal = evolution.heal + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + kills;
+      const heal = evolution.heal + state.player.lightHealBonus + flags.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + kills;
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
       state.player.shield += evolution.shield;
       addLog(`Священный круг лечит ${heal} здоровья и дает ${evolution.shield} щита.`);
@@ -2587,7 +3041,7 @@
         }
         addEffect(enemy.x, enemy.y, ELEMENT_COLORS.light, 8, "коп");
       });
-      const heal = 1 + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + kills;
+      const heal = 1 + state.player.lightHealBonus + flags.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + kills;
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
       addLog(`Копье зари лечит ${heal} здоровья.`);
       return true;
@@ -2611,7 +3065,7 @@
       }
     }
     if (spell.id === "shadowSpike" && target.hp < target.maxHp) {
-      damage += 2 + state.player.shadowWoundBonus + spellUpgradeTotal(spell.id, "woundedBonus");
+      damage += 2 + state.player.shadowWoundBonus + flags.shadowWoundBonus + spellUpgradeTotal(spell.id, "woundedBonus");
       if (evolution?.id === "twilightBlade") {
         damage += evolution.executeBonus;
       }
@@ -2633,25 +3087,25 @@
           radius: 1,
           turns: evolution.hazardTurns,
           damage: evolution.hazardDamage,
-          burnTurns: evolution.burnTurns,
+          burnTurns: evolution.burnTurns + flags.fireBurnBonusTurns,
         });
         if (!died && state.enemies.includes(target)) {
-          target.burn = Math.max(target.burn, evolution.burnTurns);
+          target.burn = Math.max(target.burn, evolution.burnTurns + flags.fireBurnBonusTurns);
         }
         addLog("Пирокласт оставляет горящую область.");
       } else if (evolution?.id !== "solarMeteor" && target.hp > 0 && Math.random() < 0.45) {
-        target.burn = spellUpgradeOverride(spell.id, "burnTurns", 2);
+        target.burn = spellUpgradeOverride(spell.id, "burnTurns", 2) + flags.fireBurnBonusTurns;
         addLog(`${target.name} горит.`);
       }
     }
 
     if (spell.id === "iceShard") {
       if (evolution?.id === "icePrison" && !died && state.enemies.includes(target)) {
-        target.slow = Math.max(target.slow, evolution.slowTurns);
+        target.slow = Math.max(target.slow, evolution.slowTurns + flags.iceSlowBonusTurns);
         addLog(`${target.name} скован ледяной тюрьмой.`);
       } else if (evolution?.id === "shardStorm") {
         if (!died && state.enemies.includes(target)) {
-          target.slow = Math.max(target.slow, evolution.slowTurns);
+          target.slow = Math.max(target.slow, evolution.slowTurns + flags.iceSlowBonusTurns);
         }
         nearbyEnemies(target, evolution.sideRadius, new Set([target.id]))
           .slice(0, evolution.sideTargets)
@@ -2659,7 +3113,7 @@
             const sideDamage = Math.max(1, spellDamage(spell, enemy) - evolution.sideDamagePenalty);
             damageEnemy(enemy, sideDamage, evolution.name, spell.element);
             if (state.enemies.includes(enemy)) {
-              enemy.slow = Math.max(enemy.slow, evolution.slowTurns);
+              enemy.slow = Math.max(enemy.slow, evolution.slowTurns + flags.iceSlowBonusTurns);
             }
             addEffect(enemy.x, enemy.y, ELEMENT_COLORS.ice, 8, "лед");
           });
@@ -2667,13 +3121,13 @@
       } else if (target.hp > 0) {
         const slowMin = spellUpgradeOverride(spell.id, "slowMin", 2);
         const slowMax = spellUpgradeOverride(spell.id, "slowMax", 3);
-        target.slow = Math.max(target.slow, randomInt(slowMin, slowMax));
+        target.slow = Math.max(target.slow, randomInt(slowMin, slowMax) + flags.iceSlowBonusTurns);
         addLog(`${target.name} замедлен.`);
       }
     }
 
     if (spell.id === "dawnRay") {
-      const heal = 1 + state.player.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + (died ? 1 : 0);
+      const heal = 1 + state.player.lightHealBonus + flags.lightHealBonus + spellUpgradeTotal(spell.id, "healBonus") + (died ? 1 : 0);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
       addLog(`Луч рассвета лечит ${heal} здоровья.`);
     }
@@ -2705,11 +3159,39 @@
     return true;
   }
 
+  function hasNegativeStatus(enemy) {
+    return Boolean(
+      enemy.burn > 0 ||
+      enemy.poison > 0 ||
+      enemy.slow > 0 ||
+      enemy.stun > 0 ||
+      enemy.acidTurns > 0 ||
+      enemy.curseMarkTurns > 0
+    );
+  }
+
   function spellDamage(spell, enemy) {
+    const flags = artifactFlags();
     const elementBonus = state.player.elementBonus[spell.element] || 0;
     const weaknessBonus = enemy.weakTo.includes(spell.element) ? 1 : 0;
     const upgradeBonus = spellUpgradeTotal(spell.id, "damageBonus");
-    const scaled = (spell.baseDamage + upgradeBonus + state.player.flatSpellBonus + weaknessBonus) *
+    let artifactDamageBonus = state.currentSpellDamageBonus || 0;
+    if (spell.element === "fire" && enemy.burn > 0) {
+      artifactDamageBonus += flags.fireDamageToBurning;
+    }
+    if (spell.element === "ice" && enemy.slow > 0) {
+      artifactDamageBonus += flags.iceDamageToSlowed;
+    }
+    if (spell.element === "lightning") {
+      artifactDamageBonus += flags.lightningDamageBonus;
+    }
+    if (spell.element === "light") {
+      artifactDamageBonus += flags.lightDamageBonus;
+    }
+    if (spell.element === "shadow") {
+      artifactDamageBonus += flags.shadowDamageBonus;
+    }
+    const scaled = (spell.baseDamage + upgradeBonus + state.player.flatSpellBonus + weaknessBonus + artifactDamageBonus) *
       (state.player.spellDamageMultiplier + elementBonus);
     return Math.max(1, Math.round(scaled));
   }
@@ -2820,6 +3302,11 @@
 
   function applyDamageVulnerabilities(enemy, amount) {
     let finalAmount = amount;
+    const statusBonus = artifactFlags().statusDamageBonus;
+    if (finalAmount > 0 && statusBonus > 0 && hasNegativeStatus(enemy)) {
+      finalAmount += statusBonus;
+      addLog(`${enemy.name}: Пепельное сердце усиливает удар (+${statusBonus}).`);
+    }
     if (finalAmount > 0 && enemy.acidTurns > 0) {
       const bonus = enemy.acidBonus || 1;
       finalAmount += bonus;
@@ -2835,6 +3322,25 @@
       }
     }
     return finalAmount;
+  }
+
+  function handleArtifactEnemyKill(enemy, element) {
+    const flags = artifactFlags();
+    if (!state.player?.artifactKillManaAvailable || flags.floorKillMana <= 0) {
+      return;
+    }
+    state.player.artifactKillManaAvailable = false;
+    let refund = flags.floorKillMana;
+    const shadowKill = element === "shadow" && flags.shadowKillManaBonus > 0;
+    if (shadowKill) {
+      refund += flags.shadowKillManaBonus;
+    }
+    state.player.mana = Math.min(state.player.maxMana, state.player.mana + refund);
+    addLog(`Маска сумрака возвращает ${refund} маны за победу над ${enemy.name}.`);
+    if (shadowKill && flags.shadowKillNextSpellDamage > 0) {
+      state.player.nextSpellDamageBonus += flags.shadowKillNextSpellDamage;
+      addLog(`Маска сумрака усиливает следующее заклинание на ${flags.shadowKillNextSpellDamage} урон.`);
+    }
   }
 
   function removeEnemy(enemy) {
@@ -2858,6 +3364,7 @@
     if (enemy.hp <= 0) {
       addLog(enemy.defeatText || `${enemy.name} побежден.`);
       removeEnemy(enemy);
+      handleArtifactEnemyKill(enemy, element);
       if (enemy.boss) {
         handleBossDefeat(enemy);
       }
@@ -2884,6 +3391,30 @@
     });
     updateVision();
     addLog("После победы над стражем открывается переход выше.");
+  }
+
+  function applyDamageShieldArtifact() {
+    const flags = artifactFlags();
+    if (flags.damageShield <= 0 || state.player.windFeatherCooldown > 0) {
+      return;
+    }
+    state.player.shield += flags.damageShield;
+    state.player.windFeatherCooldown = flags.damageShieldCooldown || 4;
+    addLog(`Перо вихря дает ${flags.damageShield} щита после удара.`);
+  }
+
+  function triggerLastChanceArtifact() {
+    const artifact = ownedArtifactById("lastChanceStone");
+    if (!artifact || artifact.active === false || artifact.spent) {
+      return false;
+    }
+    artifact.active = false;
+    artifact.spent = true;
+    state.player.hp = 1;
+    state.player.shield += 2;
+    refreshArtifactFlags();
+    addLog("Камень последнего шанса раскалывается: маг остается с 1 здоровьем и получает 2 щита.");
+    return true;
   }
 
   function damagePlayer(amount, message) {
@@ -2913,8 +3444,14 @@
       state.player.hp -= remaining;
       addLog(`${message} Вы теряете ${remaining} здоровья.`);
       addEffect(state.player.x, state.player.y, "#ff4d5a", 8, String(remaining));
+      if (state.player.hp > 0) {
+        applyDamageShieldArtifact();
+      }
     }
     if (state.player.hp <= 0) {
+      if (triggerLastChanceArtifact()) {
+        return;
+      }
       state.player.hp = 0;
       addLog("Башня забирает последнюю искру мага.");
       setMode(MODES.GAME_OVER);
@@ -2984,6 +3521,9 @@
         state.player.damageReduction = 0;
       }
     }
+    if (state.player.windFeatherCooldown > 0) {
+      state.player.windFeatherCooldown -= 1;
+    }
   }
 
   function tickHazardsAndStatuses() {
@@ -3046,7 +3586,7 @@
       }
       if (enemy.burn > 0) {
         enemy.burn -= 1;
-        damageEnemy(enemy, 1, "горение", "fire");
+        damageEnemy(enemy, 1 + artifactFlags().burnTickBonus, "горение", "fire");
       }
       if (!state.enemies.includes(enemy)) {
         return;
@@ -3711,14 +4251,24 @@
 
     state.player.artifacts.forEach((artifact) => {
       const card = document.createElement("div");
-      card.className = `artifact-card${artifact.cursed ? " is-cursed" : ""}`;
+      const rarity = artifact.rarity || (artifact.cursed ? "cursed" : "common");
+      const tier = artifact.tier || 1;
+      const rarityLabel = ARTIFACT_RARITY_LABELS[rarity] || "Обычный";
+      card.className = [
+        "artifact-card",
+        artifact.cursed ? "is-cursed" : "",
+        artifact.active === false || artifact.spent ? "is-spent" : "",
+        `rarity-${cssClassToken(rarity)}`,
+        `tier-${tier}`,
+      ].filter(Boolean).join(" ");
       card.innerHTML = `
         <div class="artifact-title">
           <span>${artifact.name}</span>
-          <strong>${artifact.cursed ? "Проклят" : "Чистый"}</strong>
+          <strong>${rarityLabel} · T${tier}</strong>
         </div>
         <div class="artifact-meta">${artifact.bonusText}</div>
         ${artifact.cursed ? `<div class="artifact-curse">${artifact.curseText}</div>` : ""}
+        ${artifact.spent ? `<div class="artifact-state">Неактивен: сила артефакта израсходована.</div>` : ""}
       `;
       dom.artifactList.appendChild(card);
     });
