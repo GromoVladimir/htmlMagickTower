@@ -9,6 +9,7 @@
     logLimit: 9,
     roomAttempts: 130,
     manaRegenEvery: 4,
+    eventRoomChance: 0.35,
     basePlayer: {
       hp: 10,
       maxHp: 10,
@@ -33,6 +34,7 @@
       hazard: "rgba(111, 224, 88, 0.38)",
       artifact: "#f4d35e",
       cursedArtifact: "#d65cff",
+      eventRoom: "#82e6c8",
       fog: "#020309",
       exploredFog: "rgba(2, 3, 9, 0.68)",
     },
@@ -48,6 +50,7 @@
     MENU: "menu",
     PLAYING: "playing",
     RELIC_CHOICE: "relicChoice",
+    EVENT_CHOICE: "eventChoice",
     VICTORY: "victory",
     GAME_OVER: "gameOver",
   };
@@ -1568,6 +1571,42 @@
     ALTAR: "altar",
     TRAP: "trap",
     ARTIFACT: "artifact",
+    EVENT_ROOM: "eventRoom",
+  };
+
+  const EVENT_ROOM_DEFINITIONS = {
+    mirrorLibrary: {
+      id: "mirrorLibrary",
+      name: "Зеркальная библиотека",
+      mapLabel: "Б",
+      description: "Страницы отражают возможные версии мага. Можно взять силу, знание или рискнуть текущей школой.",
+    },
+    cursedAltar: {
+      id: "cursedAltar",
+      name: "Проклятый алтарь",
+      mapLabel: "А",
+      description: "Алтарь предлагает артефакт, но просит плату здоровьем или слабым проклятием.",
+    },
+    manaFountain: {
+      id: "manaFountain",
+      name: "Фонтан маны",
+      mapLabel: "Ф",
+      description: "Чистая мана бьет из трещин камня. Она может восстановить силы или смыть слабое проклятие.",
+    },
+    trialRoom: {
+      id: "trialRoom",
+      name: "Комната испытания",
+      mapLabel: "И",
+      description: "Башня предлагает короткую схватку. Врагов будет ровно двое, а награда известна заранее.",
+    },
+  };
+
+  const WEAK_CURSE_TYPES = {
+    manaCrack: {
+      id: "manaCrack",
+      name: "Трещина маны",
+      description: "-1 к максимальной мане.",
+    },
   };
 
   const dom = {
@@ -1622,6 +1661,8 @@
     pendingBossRelicChoices: [],
     pendingBossRelicExit: null,
     pendingBossRelicFloor: null,
+    pendingEvent: null,
+    activeChallenge: null,
     idCounter: 1,
     lastMoveDir: { x: 1, y: 0 },
   };
@@ -1945,6 +1986,104 @@
     return sample(actUncollected.length ? actUncollected : pool.length ? pool : fallbackPool);
   }
 
+  function chooseEventArtifact(options = {}) {
+    const cursed = Boolean(options.cursed);
+    const rarities = options.rarities || null;
+    const matches = (artifact) =>
+      artifact.rarity !== "bossRelic" &&
+      artifact.cursed === cursed &&
+      (!rarities || rarities.includes(artifact.rarity));
+    const tier = chooseArtifactTier(state.floor);
+    const pools = [
+      getArtifactPoolForFloor(state.floor, cursed, tier).filter(matches),
+      getArtifactPoolForFloor(state.floor, cursed).filter(matches),
+      ARTIFACTS.filter(matches),
+    ];
+
+    for (const pool of pools) {
+      const uncollected = pool.filter((artifact) =>
+        !state.player.artifacts.some((owned) => owned.id === artifact.id)
+      );
+      if (uncollected.length) {
+        return sample(uncollected);
+      }
+      if (pool.length) {
+        return sample(pool);
+      }
+    }
+
+    return null;
+  }
+
+  function grantArtifactReward(artifact, sourceText = "Артефакт") {
+    if (!artifact) {
+      addLog("Башня не нашла подходящий артефакт для награды.");
+      return false;
+    }
+
+    addArtifactToPlayer(artifact);
+    addLog(`${sourceText}: ${artifact.name}. ${artifact.bonusText}`);
+    return true;
+  }
+
+  function addWeakCurse(curseId = "manaCrack") {
+    const curse = WEAK_CURSE_TYPES[curseId];
+    if (!curse || !state.player) {
+      return false;
+    }
+
+    const beforeMaxMana = state.player.maxMana;
+    changeMaxMana(state.player, -1);
+    const manaPenalty = beforeMaxMana - state.player.maxMana;
+    state.player.curses.push({
+      id: curse.id,
+      name: curse.name,
+      description: curse.description,
+      manaPenalty,
+    });
+    addLog(`Слабое проклятие: ${curse.name}. ${curse.description}`);
+    return true;
+  }
+
+  function removeWeakCurse() {
+    if (!state.player?.curses?.length) {
+      addLog("Слабых проклятий нет.");
+      return false;
+    }
+
+    const curse = state.player.curses.shift();
+    if (curse.manaPenalty > 0) {
+      changeMaxMana(state.player, curse.manaPenalty);
+    }
+    addLog(`Фонтан смывает проклятие: ${curse.name}.`);
+    return true;
+  }
+
+  function chooseChallengeReward() {
+    const reward = sampleWeighted([
+      { type: "artifact", weight: 0.55 },
+      { type: "heal", amount: 3, weight: 0.3 },
+      { type: "shard", amount: 1, weight: 0.15 },
+    ]);
+    return { type: reward.type, amount: reward.amount || 1 };
+  }
+
+  function describeChallengeReward(reward) {
+    if (!reward) {
+      return "награда башни";
+    }
+    if (reward.type === "artifact") {
+      return "артефакт текущего акта";
+    }
+    if (reward.type === "heal") {
+      return `лечение ${reward.amount} здоровья`;
+    }
+    if (reward.type === "shard") {
+      return "+1 осколок магии";
+    }
+    return "награда башни";
+  }
+
   function chooseBossRelicOptions(floor) {
     const collectedIds = new Set(state.player.artifacts.map((artifact) => artifact.id));
     const pool = BOSS_RELICS.filter((relic) =>
@@ -2017,6 +2156,7 @@
       claimedMagicShardRewards: {},
       selectedSpell: 0,
       flatSpellBonus: 0,
+      floorSpellDamageBonus: 0,
       spellDamageMultiplier: 1,
       spellCostModifier: 0,
       elementBonus: {},
@@ -2048,6 +2188,7 @@
       nextSpellDamageBonus: 0,
       damageMarkBonus: 0,
       damageMarkSource: "",
+      curses: [],
       artifacts: [],
       trait: null,
     };
@@ -2073,6 +2214,8 @@
     state.pendingBossRelicChoices = [];
     state.pendingBossRelicExit = null;
     state.pendingBossRelicFloor = null;
+    state.pendingEvent = null;
+    state.activeChallenge = null;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
 
@@ -2093,6 +2236,8 @@
     state.hazards = [];
     state.barriers = [];
     state.effects = [];
+    state.pendingEvent = null;
+    state.activeChallenge = null;
     const floorData = generateFloor(floor);
     state.map = floorData.map;
     state.rooms = floorData.rooms;
@@ -2103,6 +2248,7 @@
     state.player.floorBlockAvailable = state.player.blocksFirstHit;
     state.player.freeSpellAvailable = state.player.freeFirstSpell;
     state.player.spellsCastThisFloor = 0;
+    state.player.floorSpellDamageBonus = 0;
     state.player.damageMarkBonus = 0;
     state.player.damageMarkSource = "";
     state.player.artifactKillManaAvailable = true;
@@ -2256,6 +2402,7 @@
       placeTraps(floorData, rules);
     }
     placeArtifacts(floorData, rules);
+    placeFloorEvent(floorData);
   }
 
   function placeBoss(floorData) {
@@ -2345,6 +2492,40 @@
         y: pos.y,
         armed: true,
       });
+    }
+  }
+
+  function placeFloorEvent(floorData) {
+    if (
+      BOSSES_BY_FLOOR[state.floor] ||
+      state.objects.some((object) => object.type === EVENT_TYPES.EVENT_ROOM) ||
+      Math.random() >= CONFIG.eventRoomChance
+    ) {
+      return;
+    }
+
+    const eventIds = Object.keys(EVENT_ROOM_DEFINITIONS);
+    const eventId = sample(eventIds);
+    const rooms = floorData.rooms.filter((room) => room !== floorData.startRoom && room !== floorData.exitRoom);
+    const availableRooms = [...(rooms.length ? rooms : floorData.rooms.slice(1))];
+
+    while (availableRooms.length) {
+      const room = availableRooms.splice(randomInt(0, availableRooms.length - 1), 1)[0];
+      const pos = randomFreeCellInRoom(room);
+      if (!pos) {
+        continue;
+      }
+
+      state.objects.push({
+        id: nextId(),
+        type: EVENT_TYPES.EVENT_ROOM,
+        eventId,
+        x: pos.x,
+        y: pos.y,
+        used: false,
+        trialReward: eventId === "trialRoom" ? chooseChallengeReward() : null,
+      });
+      return;
     }
   }
 
@@ -2794,6 +2975,15 @@
       return;
     }
 
+    if (state.mode === MODES.EVENT_CHOICE) {
+      if (["1", "2", "3"].includes(key)) {
+        chooseEventChoice(Number(key) - 1);
+      } else if (key === "escape") {
+        cancelEventChoice();
+      }
+      return;
+    }
+
     if (key === "escape") {
       setMode(MODES.MENU);
       return;
@@ -2931,6 +3121,11 @@
       return;
     }
 
+    if (target.type === EVENT_TYPES.EVENT_ROOM) {
+      openEventChoice(target);
+      return;
+    }
+
     if (target.type === EVENT_TYPES.CHEST) {
       if (target.used) {
         addLog("Сундук уже пуст.");
@@ -3029,6 +3224,381 @@
       addLog("Вы изучили новое заклинание.");
     }
     state.objects = state.objects.filter((object) => object.id !== book.id);
+  }
+
+  function eventDefinition(event) {
+    return EVENT_ROOM_DEFINITIONS[event?.eventId] || null;
+  }
+
+  function canSpendHealth(amount) {
+    return state.player && state.player.hp > amount;
+  }
+
+  function spendHealth(amount, reason) {
+    state.player.hp = Math.max(1, state.player.hp - amount);
+    addEffect(state.player.x, state.player.y, "#ff4d5a", 8, `-${amount}`);
+    addLog(`${reason}: потеряно ${amount} здоровья.`);
+  }
+
+  function availableReplacementSpells() {
+    return REWARD_RULES.bookSpellPool.filter((spellId) =>
+      SPELLS[spellId] && !state.player.spells.includes(spellId)
+    );
+  }
+
+  function eventChoices(event) {
+    const eventId = event?.eventId;
+    const currentSpellId = state.player.spells[state.selectedSpellIndex] || state.player.spells[0];
+    const currentSpellName = currentSpellId ? SPELLS[currentSpellId].name : "выбранное заклинание";
+    const hasReplacement = availableReplacementSpells().length > 0 && Boolean(currentSpellId);
+    const hasCurse = Boolean(state.player.curses?.length);
+    const trialReward = event?.trialReward || chooseChallengeReward();
+
+    if (eventId === "mirrorLibrary") {
+      return [
+        {
+          id: "mirrorShard",
+          title: "Взять осколок",
+          effect: "Цена: 2 здоровья. Награда: +1 осколок магии.",
+          disabled: !canSpendHealth(2),
+          disabledReason: "Нужно больше 2 здоровья.",
+        },
+        {
+          id: "mirrorSwap",
+          title: "Сменить заклинание",
+          effect: `${currentSpellName} заменится на случайное новое. Уровень и эволюция старого будут потеряны.`,
+          disabled: !hasReplacement,
+          disabledReason: "Нет доступного нового заклинания для замены.",
+        },
+        {
+          id: "mirrorPower",
+          title: "Взять отраженный фокус",
+          effect: "Цена: нет. +1 к урону заклинаний до конца текущего этажа.",
+        },
+      ];
+    }
+
+    if (eventId === "cursedAltar") {
+      return [
+        {
+          id: "altarRareCurse",
+          title: "Принять дар",
+          effect: "Редкий/эпический артефакт текущего акта. Цена: слабое проклятие «Трещина маны».",
+        },
+        {
+          id: "altarHeal",
+          title: "Отказаться",
+          effect: "Цена: нет. Восстановить 2 здоровья.",
+        },
+        {
+          id: "altarSacrifice",
+          title: "Пожертвовать кровь",
+          effect: "Цена: 2 здоровья. Награда: случайный артефакт текущего акта.",
+          disabled: !canSpendHealth(2),
+          disabledReason: "Нужно больше 2 здоровья.",
+        },
+      ];
+    }
+
+    if (eventId === "manaFountain") {
+      return [
+        {
+          id: "fountainMana",
+          title: "Напиться маны",
+          effect: "Цена: нет. Восстановить всю ману.",
+        },
+        {
+          id: "fountainMaxMana",
+          title: "Расширить сосуд",
+          effect: "Цена: 2 здоровья. +1 к максимальной мане.",
+          disabled: !canSpendHealth(2),
+          disabledReason: "Нужно больше 2 здоровья.",
+        },
+        {
+          id: "fountainCleanse",
+          title: "Смыть проклятие",
+          effect: "Цена: нет. Очистить одно слабое проклятие.",
+          disabled: !hasCurse,
+          disabledReason: "Нет слабых проклятий.",
+        },
+      ];
+    }
+
+    if (eventId === "trialRoom") {
+      return [
+        {
+          id: "trialStart",
+          title: "Начать испытание",
+          effect: `Появятся ровно 2 врага не вплотную. Награда: ${describeChallengeReward(trialReward)}.`,
+          disabled: getChallengeEnemyPool().length === 0,
+          disabledReason: "На этом этаже нет подходящих врагов для испытания.",
+        },
+        {
+          id: "trialDecline",
+          title: "Отказаться",
+          effect: "Цена: нет. Комната исчезнет без награды.",
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  function openEventChoice(event) {
+    const definition = eventDefinition(event);
+    if (!definition) {
+      addLog("Комната-событие молчит.");
+      return;
+    }
+    if (event.used) {
+      addLog(`${definition.name} уже исчерпана.`);
+      return;
+    }
+
+    if (event.eventId === "trialRoom" && !event.trialReward) {
+      event.trialReward = chooseChallengeReward();
+    }
+    state.pendingEvent = event;
+    addLog(`Вы находите событие: ${definition.name}.`);
+    setMode(MODES.EVENT_CHOICE);
+  }
+
+  function cancelEventChoice() {
+    state.pendingEvent = null;
+    setMode(MODES.PLAYING);
+    addLog("Вы оставляете комнату-событие на потом.");
+  }
+
+  function chooseEventChoice(index) {
+    const event = state.pendingEvent;
+    if (!event || state.mode !== MODES.EVENT_CHOICE) {
+      return;
+    }
+
+    const choices = eventChoices(event);
+    const choice = choices[index];
+    if (!choice) {
+      addLog("Выберите один из доступных вариантов события.");
+      return;
+    }
+    if (choice.disabled) {
+      addLog(choice.disabledReason || "Этот вариант сейчас недоступен.");
+      return;
+    }
+
+    applyEventChoice(event, choice.id);
+  }
+
+  function finishEventChoice(event, enemyPhase = true) {
+    event.used = true;
+    state.objects = state.objects.filter((object) => object.id !== event.id);
+    state.pendingEvent = null;
+    updateVision();
+    setMode(MODES.PLAYING);
+    advanceTurn(enemyPhase);
+  }
+
+  function applyEventChoice(event, choiceId) {
+    if (!event || event.used) {
+      addLog("Событие уже исчерпано.");
+      return;
+    }
+
+    let success = true;
+    let enemyPhase = true;
+
+    if (choiceId === "mirrorShard") {
+      spendHealth(2, "Зеркальная библиотека отрезает отражение");
+      state.player.magicShards += 1;
+      addLog("Вы получаете +1 осколок магии.");
+    } else if (choiceId === "mirrorSwap") {
+      success = replaceSelectedSpellWithRandom();
+    } else if (choiceId === "mirrorPower") {
+      state.player.floorSpellDamageBonus += 1;
+      addLog("Отраженный фокус дает +1 к урону заклинаний до конца этажа.");
+    } else if (choiceId === "altarRareCurse") {
+      grantArtifactReward(
+        chooseEventArtifact({ cursed: false, rarities: ["rare", "epic"] }),
+        "Проклятый алтарь дарит артефакт"
+      );
+      addWeakCurse("manaCrack");
+    } else if (choiceId === "altarHeal") {
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + 2);
+      addLog("Вы отказываетесь от дара алтаря и восстанавливаете 2 здоровья.");
+    } else if (choiceId === "altarSacrifice") {
+      spendHealth(2, "Проклятый алтарь принимает жертву");
+      grantArtifactReward(
+        chooseEventArtifact({ cursed: false }),
+        "Проклятый алтарь отдает артефакт"
+      );
+    } else if (choiceId === "fountainMana") {
+      state.player.mana = state.player.maxMana;
+      addLog("Фонтан маны полностью восстанавливает ману.");
+    } else if (choiceId === "fountainMaxMana") {
+      spendHealth(2, "Фонтан маны расширяет сосуд силой боли");
+      changeMaxMana(state.player, 1);
+      addLog("Максимальная мана увеличена на 1.");
+    } else if (choiceId === "fountainCleanse") {
+      success = removeWeakCurse();
+    } else if (choiceId === "trialStart") {
+      success = startTrialEvent(event);
+      enemyPhase = false;
+    } else if (choiceId === "trialDecline") {
+      addLog("Вы отказываетесь от испытания. Комната затихает.");
+    } else {
+      success = false;
+      addLog("Башня не понимает этот выбор.");
+    }
+
+    if (success) {
+      finishEventChoice(event, enemyPhase);
+    }
+  }
+
+  function replaceSelectedSpellWithRandom() {
+    const slotIndex = state.player.spells[state.selectedSpellIndex] ? state.selectedSpellIndex : 0;
+    const oldSpellId = state.player.spells[slotIndex];
+    const replacementPool = availableReplacementSpells();
+    if (!oldSpellId || !replacementPool.length) {
+      addLog("Зеркальная библиотека не нашла нового заклинания для замены.");
+      return false;
+    }
+
+    const newSpellId = sample(replacementPool);
+    state.player.spells[slotIndex] = newSpellId;
+    delete state.player.spellLevels[oldSpellId];
+    delete state.player.spellEvolutions[oldSpellId];
+    state.player.spellLevels[newSpellId] = SPELLS[newSpellId].level;
+    delete state.player.spellEvolutions[newSpellId];
+    state.selectedSpellIndex = slotIndex;
+    refreshArtifactFlags();
+    addLog(`Зеркальная библиотека меняет ${SPELLS[oldSpellId].name} на ${SPELLS[newSpellId].name}.`);
+    return true;
+  }
+
+  function getChallengeEnemyPool() {
+    return getEnemyPoolForFloor(state.floor).filter((enemyType) => {
+      const template = ENEMY_TYPES[enemyType];
+      return template && !template.boss && !template.object;
+    });
+  }
+
+  function challengeSpawnCandidates(event, room = null) {
+    const candidates = [];
+    const seen = new Set();
+    const addCandidate = (x, y) => {
+      const key = `${x},${y}`;
+      if (seen.has(key)) {
+        return;
+      }
+      const cell = { x, y };
+      if (
+        isFreeCell(x, y) &&
+        distance(cell, state.player) >= 3 &&
+        !wouldLeavePlayerEscape(cell)
+      ) {
+        seen.add(key);
+        candidates.push(cell);
+      }
+    };
+
+    if (room) {
+      for (let y = room.y + 1; y < room.y + room.h - 1; y += 1) {
+        for (let x = room.x + 1; x < room.x + room.w - 1; x += 1) {
+          addCandidate(x, y);
+        }
+      }
+    } else {
+      for (let y = 1; y < CONFIG.mapHeight - 1; y += 1) {
+        for (let x = 1; x < CONFIG.mapWidth - 1; x += 1) {
+          addCandidate(x, y);
+        }
+      }
+    }
+
+    return candidates;
+  }
+
+  function findChallengeSpawnCells(event, count) {
+    const eventRoom = roomAt(event.x, event.y) || roomAt(state.player.x, state.player.y);
+    let candidates = challengeSpawnCandidates(event, eventRoom);
+    if (candidates.length < count) {
+      candidates = challengeSpawnCandidates(event);
+    }
+
+    const chosen = [];
+    while (candidates.length && chosen.length < count) {
+      chosen.push(candidates.splice(randomInt(0, candidates.length - 1), 1)[0]);
+    }
+    return chosen;
+  }
+
+  function startTrialEvent(event) {
+    const enemyPool = getChallengeEnemyPool();
+    if (!enemyPool.length) {
+      addLog("Комната испытания не нашла подходящих врагов.");
+      return false;
+    }
+
+    const spawnCells = findChallengeSpawnCells(event, 2);
+    if (spawnCells.length < 2) {
+      addLog("Комната испытания не нашла две безопасные клетки для врагов.");
+      return false;
+    }
+
+    const challengeId = nextId();
+    const reward = event.trialReward || chooseChallengeReward();
+    const enemyIds = spawnCells.slice(0, 2).map((cell) => {
+      const enemy = createEnemy(sample(enemyPool), cell.x, cell.y, state.floor, { challengeId });
+      state.enemies.push(enemy);
+      return enemy.id;
+    });
+
+    state.activeChallenge = {
+      id: challengeId,
+      floor: state.floor,
+      enemyIds,
+      reward,
+      claimed: false,
+    };
+    addLog(`Испытание началось: появились 2 врага. Награда: ${describeChallengeReward(reward)}.`);
+    return true;
+  }
+
+  function grantChallengeReward(reward) {
+    if (reward.type === "artifact") {
+      grantArtifactReward(chooseEventArtifact({ cursed: false }), "Награда испытания");
+    } else if (reward.type === "heal") {
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + reward.amount);
+      addLog(`Награда испытания: восстановлено ${reward.amount} здоровья.`);
+    } else if (reward.type === "shard") {
+      state.player.magicShards += 1;
+      addLog("Награда испытания: +1 осколок магии.");
+    }
+  }
+
+  function handleChallengeEnemyDefeat(enemy) {
+    const challenge = state.activeChallenge;
+    if (
+      !challenge ||
+      challenge.claimed ||
+      challenge.floor !== state.floor ||
+      !challenge.enemyIds.includes(enemy.id)
+    ) {
+      return;
+    }
+
+    const hasRemaining = challenge.enemyIds.some((enemyId) =>
+      state.enemies.some((item) => item.id === enemyId && item.hp > 0)
+    );
+    if (hasRemaining) {
+      return;
+    }
+
+    challenge.claimed = true;
+    addLog(`Испытание завершено. Награда: ${describeChallengeReward(challenge.reward)}.`);
+    grantChallengeReward(challenge.reward);
+    state.activeChallenge = null;
   }
 
   function applyArtifactAfterSpellCast(spell) {
@@ -3520,7 +4090,7 @@
     const elementBonus = state.player.elementBonus[spell.element] || 0;
     const weaknessBonus = enemy.weakTo.includes(spell.element) ? 1 : 0;
     const upgradeBonus = spellUpgradeTotal(spell.id, "damageBonus");
-    let artifactDamageBonus = state.currentSpellDamageBonus || 0;
+    let artifactDamageBonus = (state.currentSpellDamageBonus || 0) + (state.player.floorSpellDamageBonus || 0);
     if (spell.element === "fire" && enemy.burn > 0) {
       artifactDamageBonus += flags.fireDamageToBurning;
     }
@@ -3716,6 +4286,7 @@
       addLog(enemy.defeatText || `${enemy.name} побежден.`);
       removeEnemy(enemy);
       handleArtifactEnemyKill(enemy, element);
+      handleChallengeEnemyDefeat(enemy);
       if (enemy.boss) {
         handleBossDefeat(enemy);
       }
@@ -4556,13 +5127,16 @@
         const artifact = artifactById(object.artifactId);
         const color = artifact?.cursed ? CONFIG.colors.cursedArtifact : CONFIG.colors.artifact;
         drawGlyph(cx, cy, artifact?.cursed ? "✷" : "✧", color, 18);
+      } else if (object.type === EVENT_TYPES.EVENT_ROOM) {
+        const definition = eventDefinition(object);
+        drawGlyph(cx, cy, definition?.mapLabel || "?", CONFIG.colors.eventRoom, 17);
       }
       ctx.globalAlpha = 1;
 
       if (
         visible &&
         state.player?.revealsSecrets &&
-        [EVENT_TYPES.BOOK, EVENT_TYPES.CHEST, EVENT_TYPES.ARTIFACT].includes(object.type) &&
+        [EVENT_TYPES.BOOK, EVENT_TYPES.CHEST, EVENT_TYPES.ARTIFACT, EVENT_TYPES.EVENT_ROOM].includes(object.type) &&
         distance(object, state.player) <= 7
       ) {
         ctx.strokeStyle = "#fff2a8";
@@ -4808,7 +5382,8 @@
     }
     dom.artifactList.innerHTML = "";
 
-    if (!state.player.artifacts.length) {
+    const curses = state.player.curses || [];
+    if (!state.player.artifacts.length && !curses.length) {
       const empty = document.createElement("div");
       empty.className = "artifact-empty";
       empty.textContent = "Артефактов пока нет.";
@@ -4840,6 +5415,20 @@
       `;
       dom.artifactList.appendChild(card);
     });
+
+    curses.forEach((curse, index) => {
+      const card = document.createElement("div");
+      card.className = "artifact-card is-cursed rarity-cursed";
+      card.innerHTML = `
+        <div class="artifact-title">
+          <span>Проклятие: ${curse.name}</span>
+          <strong>Слабое · ${index + 1}</strong>
+        </div>
+        <div class="artifact-meta">${curse.description}</div>
+        <div class="artifact-state">Фонтан маны может очистить одно слабое проклятие.</div>
+      `;
+      dom.artifactList.appendChild(card);
+    });
   }
 
   function updateNearbyText() {
@@ -4856,6 +5445,10 @@
           return artifact.cursed
             ? `Проклятый артефакт: ${artifact.name}. ${artifact.bonusText} Проклятие скрыто`
             : `Артефакт: ${artifact.name}. ${artifact.bonusText}`;
+        }
+        if (object.type === EVENT_TYPES.EVENT_ROOM) {
+          const definition = eventDefinition(object);
+          return definition ? `${definition.name}: ${definition.description}` : "Комната-событие";
         }
         return "Неизвестный объект";
       });
@@ -4894,17 +5487,45 @@
     });
   }
 
+  function renderEventChoices() {
+    if (!dom.bossRelicChoice) {
+      return;
+    }
+    dom.bossRelicChoice.innerHTML = "";
+    eventChoices(state.pendingEvent).forEach((choice, index) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.disabled = Boolean(choice.disabled);
+      card.className = [
+        "relic-choice-card",
+        "event-choice-card",
+        choice.disabled ? "is-disabled" : "",
+      ].filter(Boolean).join(" ");
+      card.innerHTML = `
+        <span class="relic-choice-hotkey">${index + 1}</span>
+        <span class="relic-choice-rarity">${choice.disabled ? "Недоступно" : "Выбор"}</span>
+        <strong>${choice.title}</strong>
+        <span class="relic-choice-effect">${choice.effect}</span>
+        ${choice.disabled ? `<span class="relic-choice-disabled">${choice.disabledReason}</span>` : ""}
+      `;
+      card.addEventListener("click", () => chooseEventChoice(index));
+      dom.bossRelicChoice.appendChild(card);
+    });
+  }
+
   function updateOverlay() {
     const isRelicChoice = state.mode === MODES.RELIC_CHOICE;
+    const isEventChoice = state.mode === MODES.EVENT_CHOICE;
+    const isChoicePanel = isRelicChoice || isEventChoice;
     dom.overlay.classList.toggle("is-visible", state.mode !== MODES.PLAYING);
-    dom.overlayContent?.classList.toggle("is-relic-choice", isRelicChoice);
+    dom.overlayContent?.classList.toggle("is-relic-choice", isChoicePanel);
     if (dom.bossRelicChoice) {
-      dom.bossRelicChoice.hidden = !isRelicChoice;
-      if (!isRelicChoice) {
+      dom.bossRelicChoice.hidden = !isChoicePanel;
+      if (!isChoicePanel) {
         dom.bossRelicChoice.innerHTML = "";
       }
     }
-    dom.primaryAction.style.display = isRelicChoice ? "none" : "";
+    dom.primaryAction.style.display = isChoicePanel ? "none" : "";
 
     if (state.mode === MODES.MENU) {
       dom.overlayKicker.textContent = "Древняя башня ждет";
@@ -4917,6 +5538,12 @@
       dom.overlayTitle.textContent = "Выберите босс-реликвию";
       dom.overlayText.textContent = "Возьмите одну универсальную реликвию. Башня продолжит движение только после выбора.";
       renderBossRelicChoices();
+    } else if (isEventChoice) {
+      const definition = eventDefinition(state.pendingEvent);
+      dom.overlayKicker.textContent = `Событие · этаж ${state.floor}`;
+      dom.overlayTitle.textContent = definition?.name || "Комната-событие";
+      dom.overlayText.textContent = definition?.description || "Башня предлагает выбор.";
+      renderEventChoices();
     } else if (state.mode === MODES.VICTORY) {
       dom.overlayKicker.textContent = "Победа";
       dom.overlayTitle.textContent = "Башня спасена";
@@ -4933,7 +5560,7 @@
   }
 
   dom.primaryAction.addEventListener("click", () => {
-    if (state.mode !== MODES.RELIC_CHOICE) {
+    if ([MODES.MENU, MODES.VICTORY, MODES.GAME_OVER].includes(state.mode)) {
       newGame();
     }
   });
