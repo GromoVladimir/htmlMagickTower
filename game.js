@@ -97,6 +97,16 @@
     bossRelic: "Босс-реликвия",
   };
 
+  const ARTIFACT_RARITY_COLORS = {
+    common: "#cfd7e4",
+    rare: "#8fc7ff",
+    epic: "#c59cff",
+    legendary: "#ffd66d",
+    secret: "#bff4ff",
+    cursed: "#ff95de",
+    bossRelic: "#ff9ab0",
+  };
+
   const SPELLS = {
     fireball: {
       id: "fireball",
@@ -193,6 +203,11 @@
   const MAX_SPELL_LEVEL = 3;
   const SPELL_UPGRADE_COST = 1;
   const EVOLUTION_COST = 1;
+  const ENEMY_SCALING = {
+    hpPerFloor: 0.65,
+    damagePerFloor: 0.75,
+    defaultDamageScaleEvery: 5,
+  };
 
   const SPELL_UPGRADES = {
     fireball: {
@@ -793,12 +808,13 @@
     {
       id: "blackSun",
       name: "Черное солнце",
-      bonusText: "+2 к максимальной мане. Если есть свет или тьма: эти заклинания наносят +1 урон. Если они эволюционировали: свет лечит на 1 больше, тьма сильнее добивает раненых.",
+      bonusText: "+3 к максимальной мане и +1 к урону всех заклинаний. Если есть свет или тьма: эти заклинания наносят еще +1 урон. Если они эволюционировали: свет лечит на 1 больше, тьма сильнее добивает раненых.",
       tier: 3,
       rarity: "epic",
       cursed: false,
       apply(player) {
-        changeMaxMana(player, 2);
+        changeMaxMana(player, 3);
+        player.flatSpellBonus += 1;
       },
       refreshFlags(player, flags) {
         if (hasElementSpell(player, "light")) {
@@ -864,7 +880,7 @@
     {
       id: "lastChanceStone",
       name: "Камень последнего шанса",
-      bonusText: "При смертельном уроне маг остается с 1 здоровьем и получает 2 щита. После срабатывания артефакт становится неактивным.",
+      bonusText: "При смертельном уроне маг остается с 1 здоровьем и получает 4 щита. После срабатывания артефакт становится неактивным.",
       tier: 3,
       rarity: "legendary",
       cursed: false,
@@ -976,7 +992,7 @@
       id: "ancientStoneWeight",
       bossFloor: 5,
       name: "Тяжесть древнего камня",
-      bonusText: "Когда враг впервые за этаж подходит вплотную к магу, он замедляется на 1 ход.",
+      bonusText: "Когда враг впервые за этаж подходит вплотную к магу, он замедляется на 2 хода.",
       rarity: "bossRelic",
       cursed: false,
       apply() {},
@@ -988,12 +1004,12 @@
       id: "bastionShard",
       bossFloor: 5,
       name: "Осколок бастиона",
-      bonusText: "После получения урона маг получает 1 щит. Срабатывает не чаще одного раза за 3 хода.",
+      bonusText: "После получения урона маг получает 2 щита. Срабатывает не чаще одного раза за 3 хода.",
       rarity: "bossRelic",
       cursed: false,
       apply() {},
       refreshFlags(player, flags) {
-        flags.bastionShield += 1;
+        flags.bastionShield += 2;
         flags.bastionShieldCooldown = Math.max(flags.bastionShieldCooldown, 3);
       },
     },
@@ -1026,12 +1042,12 @@
       id: "reflectionShard",
       bossFloor: 10,
       name: "Осколок отражения",
-      bonusText: "Первый полученный урон на каждом этаже возвращает 1 урон атакующему, если цель известна.",
+      bonusText: "Первый полученный урон на каждом этаже возвращает 2 урона атакующему, если цель известна.",
       rarity: "bossRelic",
       cursed: false,
       apply() {},
       refreshFlags(player, flags) {
-        flags.firstDamageReflect = Math.max(flags.firstDamageReflect, 1);
+        flags.firstDamageReflect = Math.max(flags.firstDamageReflect, 2);
       },
     },
   ];
@@ -1091,8 +1107,8 @@
       speed: 2,
       range: 4,
       ranged: true,
-      markCooldown: 4,
-      markChance: 0.6,
+      markCooldown: 5,
+      markChance: 0.5,
       weakTo: ["light", "shadow"],
       attackText: "Культист башни посылает слабый темный разряд.",
     },
@@ -1100,7 +1116,7 @@
       name: "Гаргулья",
       glyph: "G",
       color: "#8f9aa8",
-      hp: 8,
+      hp: 7,
       damage: 2,
       damageScaleEvery: 5,
       speed: 3,
@@ -1111,12 +1127,12 @@
     },
     manaLeech: {
       name: "Магическая пиявка",
-      glyph: "l",
+      glyph: "L",
       color: "#64e6db",
       hp: 3,
       damage: 1,
       damageScaleEvery: 6,
-      speed: 1,
+      speed: 2,
       range: 1,
       manaBurn: 1,
       weakTo: ["fire", "light"],
@@ -1131,9 +1147,9 @@
       damageScaleEvery: 6,
       speed: 1,
       range: 1,
-      dashCooldown: 4,
-      dashChance: 0.75,
-      dashRange: 7,
+      dashCooldown: 5,
+      dashChance: 0.55,
+      dashRange: 6,
       postDashDelay: 1,
       weakTo: ["shadow", "arcane"],
       attackText: "Астральный страж рассекает воздух мерцающим клинком.",
@@ -1142,7 +1158,7 @@
       name: "Кристальный рыцарь",
       glyph: "K",
       color: "#9bdcff",
-      hp: 7,
+      hp: 6,
       damage: 2,
       damageScaleEvery: 5,
       speed: 2,
@@ -1161,8 +1177,8 @@
       speed: 2,
       range: 5,
       ranged: true,
-      hazardCooldown: 4,
-      hazardTurns: 3,
+      hazardCooldown: 5,
+      hazardTurns: 2,
       maxSourceHazards: 2,
       weakTo: ["light", "arcane"],
       attackText: "Пустотная ведьма тянет боль через трещину в воздухе.",
@@ -1171,7 +1187,7 @@
       name: "Каменный архиголем",
       glyph: "A",
       color: "#c0a46b",
-      hp: 24,
+      hp: 22,
       damage: 3,
       speed: 1,
       range: 1,
@@ -1183,7 +1199,7 @@
       name: "Зеркальный архимаг",
       glyph: "M",
       color: "#9bdcff",
-      hp: 30,
+      hp: 28,
       damage: 3,
       speed: 1,
       range: 5,
@@ -1211,7 +1227,7 @@
       name: "Сердце башни / Аватар башни",
       glyph: "T",
       color: "#ff6f9f",
-      hp: 40,
+      hp: 38,
       damage: 4,
       speed: 1,
       range: 4,
@@ -1264,12 +1280,12 @@
       targetRooms: 8,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 5,
+      enemyCount: 4,
       minEnemyDistanceFromStart: 6,
       resourceCount: 2,
       artifactCount: 1,
       bonusArtifactChance: 0,
-      cursedArtifactChance: 0.3,
+      cursedArtifactChance: 0.15,
       trapCount: 0,
       firstFloorBooks: true,
       stairs: true,
@@ -1278,13 +1294,13 @@
       targetRooms: 9,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 5,
+      enemyCount: 4,
       minEnemyDistanceFromStart: 0,
       resourceCount: 2,
       artifactCount: 1,
       bonusArtifactChance: 0,
-      cursedArtifactChance: 0.3,
-      trapCount: 3,
+      cursedArtifactChance: 0.2,
+      trapCount: 2,
       firstFloorBooks: false,
       stairs: true,
     },
@@ -1296,9 +1312,9 @@
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.45,
-      trapCount: 4,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.25,
+      trapCount: 3,
       firstFloorBooks: false,
       stairs: true,
     },
@@ -1306,13 +1322,13 @@
       targetRooms: 11,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 6,
+      enemyCount: 5,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.45,
-      trapCount: 5,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.3,
+      trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
     },
@@ -1323,9 +1339,9 @@
       enemyCount: 0,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
-      artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.45,
+      artifactCount: 0,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0,
       trapCount: 0,
       firstFloorBooks: false,
       stairs: false,
@@ -1334,12 +1350,12 @@
       targetRooms: 9,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 6,
+      enemyCount: 5,
       minEnemyDistanceFromStart: 0,
       resourceCount: 2,
       artifactCount: 1,
-      bonusArtifactChance: 0.25,
-      cursedArtifactChance: 0.35,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.3,
       trapCount: 3,
       firstFloorBooks: false,
       stairs: true,
@@ -1348,12 +1364,12 @@
       targetRooms: 10,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 6,
+      enemyCount: 5,
       minEnemyDistanceFromStart: 0,
       resourceCount: 2,
       artifactCount: 1,
-      bonusArtifactChance: 0.25,
-      cursedArtifactChance: 0.35,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.3,
       trapCount: 3,
       firstFloorBooks: false,
       stairs: true,
@@ -1362,12 +1378,12 @@
       targetRooms: 10,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 7,
+      enemyCount: 6,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.4,
-      cursedArtifactChance: 0.45,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.35,
       trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
@@ -1376,12 +1392,12 @@
       targetRooms: 11,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 7,
+      enemyCount: 6,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.4,
-      cursedArtifactChance: 0.45,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.35,
       trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
@@ -1393,9 +1409,9 @@
       enemyCount: 0,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
-      artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.45,
+      artifactCount: 0,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0,
       trapCount: 0,
       firstFloorBooks: false,
       stairs: false,
@@ -1404,12 +1420,12 @@
       targetRooms: 10,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 7,
+      enemyCount: 6,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.45,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.4,
       trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
@@ -1418,12 +1434,12 @@
       targetRooms: 10,
       maxRoomSize: 8,
       maxRoomHeight: 7,
-      enemyCount: 7,
+      enemyCount: 6,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.45,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.4,
       trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
@@ -1432,13 +1448,13 @@
       targetRooms: 11,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 8,
+      enemyCount: 7,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.6,
-      cursedArtifactChance: 0.5,
-      trapCount: 5,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.45,
+      trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
     },
@@ -1446,13 +1462,13 @@
       targetRooms: 11,
       maxRoomSize: 7,
       maxRoomHeight: 6,
-      enemyCount: 8,
+      enemyCount: 7,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
       artifactCount: 1,
-      bonusArtifactChance: 0.6,
-      cursedArtifactChance: 0.5,
-      trapCount: 5,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0.45,
+      trapCount: 4,
       firstFloorBooks: false,
       stairs: true,
     },
@@ -1463,9 +1479,9 @@
       enemyCount: 0,
       minEnemyDistanceFromStart: 0,
       resourceCount: 3,
-      artifactCount: 1,
-      bonusArtifactChance: 0.5,
-      cursedArtifactChance: 0.5,
+      artifactCount: 0,
+      bonusArtifactChance: 0,
+      cursedArtifactChance: 0,
       trapCount: 0,
       firstFloorBooks: false,
       stairs: false,
@@ -1503,11 +1519,11 @@
       phase2Threshold: 0.66,
       phase3Threshold: 0.33,
       maxShards: 1,
-      shardCooldown: 5,
+      shardCooldown: 6,
       shardDamageBonus: 1,
       shardPulseEvery: 3,
-      shardHp: 6,
-      hazardTurns: 4,
+      shardHp: 5,
+      hazardTurns: 3,
       attackBoost: 1,
       minShardDistanceFromPlayer: 2,
     },
@@ -1527,9 +1543,7 @@
         "livingBook",
         "smallGolem",
         "towerCultist",
-        "towerCultist",
         "gargoyle",
-        "manaLeech",
         "manaLeech",
       ],
     },
@@ -1539,10 +1553,7 @@
         "gargoyle",
         "manaLeech",
         "astralGuard",
-        "astralGuard",
         "crystalKnight",
-        "crystalKnight",
-        "voidWitch",
         "voidWitch",
       ],
     },
@@ -2345,6 +2356,7 @@
     state.secretRewardClaimed = false;
     state.secretEntranceId = null;
     state.activeChallenge = null;
+    state.idCounter = 1;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
 
@@ -2843,11 +2855,18 @@
 
   function createEnemy(type, x, y, floor, overrides = {}) {
     const template = ENEMY_TYPES[type];
-    const fixedPower = template.boss || template.summoned || template.illusion || template.object;
+    const fixedPower = Boolean(
+      template.boss ||
+      template.illusion ||
+      template.object ||
+      overrides.summoned ||
+      overrides.illusion ||
+      overrides.object
+    );
     const scale = fixedPower ? 0 : Math.max(0, floor - 1);
-    const damageScaleEvery = Math.max(1, template.damageScaleEvery || 2);
-    const hp = overrides.hp ?? template.hp + scale;
-    const damage = overrides.damage ?? template.damage + Math.floor(scale / damageScaleEvery);
+    const damageScaleEvery = Math.max(1, template.damageScaleEvery || ENEMY_SCALING.defaultDamageScaleEvery);
+    const hp = overrides.hp ?? template.hp + Math.floor(scale * ENEMY_SCALING.hpPerFloor);
+    const damage = overrides.damage ?? template.damage + Math.floor((scale * ENEMY_SCALING.damagePerFloor) / damageScaleEvery);
     return {
       id: nextId(),
       type,
@@ -2863,7 +2882,7 @@
       range: template.range,
       ranged: Boolean(template.ranged),
       boss: Boolean(template.boss),
-      summoned: Boolean(template.summoned),
+      summoned: Boolean(overrides.summoned ?? (template.summoned && fixedPower)),
       minion: Boolean(template.minion),
       illusion: Boolean(template.illusion),
       object: Boolean(template.object),
@@ -4858,9 +4877,9 @@
     artifact.active = false;
     artifact.spent = true;
     state.player.hp = 1;
-    state.player.shield += 2;
+    state.player.shield += 4;
     refreshArtifactFlags();
-    addLog("Камень последнего шанса раскалывается: маг остается с 1 здоровьем и получает 2 щита.");
+    addLog("Камень последнего шанса раскалывается: маг остается с 1 здоровьем и получает 4 щита.");
     return true;
   }
 
@@ -5631,7 +5650,8 @@
         drawGlyph(cx, cy, "×", CONFIG.colors.trap, 17);
       } else if (object.type === EVENT_TYPES.ARTIFACT) {
         const artifact = artifactById(object.artifactId);
-        const color = artifact?.cursed ? CONFIG.colors.cursedArtifact : CONFIG.colors.artifact;
+        const rarity = artifact?.rarity || (artifact?.cursed ? "cursed" : "common");
+        const color = ARTIFACT_RARITY_COLORS[rarity] || CONFIG.colors.artifact;
         drawGlyph(cx, cy, artifact?.cursed ? "✷" : "✧", color, 18);
       } else if (object.type === EVENT_TYPES.EVENT_ROOM) {
         const definition = eventDefinition(object);
@@ -5692,7 +5712,7 @@
             continue;
           }
           if (hazard.type === "danger") {
-            ctx.fillStyle = "rgba(232, 78, 75, 0.42)";
+            ctx.fillStyle = "rgba(232, 78, 75, 0.58)";
           } else if (hazard.type === "fire") {
             ctx.fillStyle = "rgba(255, 112, 67, 0.38)";
           } else if (hazard.type === "acid") {
@@ -5701,6 +5721,13 @@
             ctx.fillStyle = CONFIG.colors.hazard;
           }
           ctx.fillRect(x * size + 3, y * size + 3, size - 6, size - 6);
+          if (hazard.type === "danger") {
+            ctx.strokeStyle = "#ffb1a8";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x * size + 4, y * size + 4, size - 8, size - 8);
+            ctx.lineWidth = 1;
+            drawGlyph(x * size + size / 2, y * size + size / 2, "!", "#fff2e8", 12);
+          }
         }
       }
     });
@@ -5808,7 +5835,10 @@
     if (!state.player) {
       return;
     }
-    dom.floorLabel.textContent = `Этаж ${state.floor}`;
+    const act = getActForFloor(state.floor);
+    const actIndex = ACTS.indexOf(act);
+    const actLabel = ["I", "II", "III"][actIndex] || String(actIndex + 1);
+    dom.floorLabel.textContent = `Акт ${actLabel} · Этаж ${state.floor}`;
     dom.hpText.textContent = `${state.player.hp}/${state.player.maxHp}`;
     dom.hpFill.style.width = `${clamp((state.player.hp / state.player.maxHp) * 100, 0, 100)}%`;
     dom.manaText.textContent = `${state.player.mana}/${state.player.maxMana}`;
@@ -6110,7 +6140,7 @@
       dom.overlayKicker.textContent = "Древняя башня ждет";
       dom.overlayTitle.textContent = "Башня последнего мага";
       dom.overlayText.textContent =
-        "Пройдите 15 процедурных этажей, найдите книги заклинаний и победите Сердце башни. Каменный архиголем и Зеркальный архимаг ждут как испытания на 5 и 10 этажах.";
+        "Пройдите 15 этажей трех актов, соберите заклинания и артефакты, а затем победите Сердце башни. Каменный архиголем и Зеркальный архимаг ждут на 5 и 10 этажах.";
       dom.primaryAction.textContent = "Начать восхождение";
     } else if (isRelicChoice) {
       dom.overlayKicker.textContent = `Босс повержен · этаж ${state.pendingBossRelicFloor}`;
@@ -6132,13 +6162,13 @@
       dom.overlayKicker.textContent = "Победа";
       dom.overlayTitle.textContent = "Башня спасена";
       dom.overlayText.textContent =
-        "Сердце башни пало, древняя магия стихла. Нажмите R или кнопку, чтобы начать новую партию.";
+        "Сердце башни пало, древняя магия стихла. Нажмите R или кнопку, чтобы начать новый забег.";
       dom.primaryAction.textContent = "Новая игра";
     } else if (state.mode === MODES.GAME_OVER) {
       dom.overlayKicker.textContent = "Поражение";
       dom.overlayTitle.textContent = "Маг пал в башне";
       dom.overlayText.textContent =
-        "Башня оказалась сильнее на этот раз. Нажмите R или кнопку, чтобы попробовать другой билд.";
+        "Башня оказалась сильнее на этот раз. Нажмите R или кнопку, чтобы попробовать другой билд с чистого начала.";
       dom.primaryAction.textContent = "Попробовать снова";
     }
   }
