@@ -20,13 +20,14 @@
       <div class="canvas-wrap">
         <canvas id="gameCanvas" width="880" height="550" aria-label="Карта башни"></canvas>
         <div class="overlay is-visible" id="screenOverlay">
-          <div class="overlay-content">
+          <div class="overlay-content" id="overlayContent">
             <p class="overlay-kicker" id="overlayKicker">Древняя башня ждет</p>
             <h2 id="overlayTitle">Башня последнего мага</h2>
             <p id="overlayText">
               Маг-новичок входит в башню, где пробудилось Сердце башни.
               Доберитесь до пятнадцатого этажа; Каменный архиголем и Зеркальный архимаг ждут на пути.
             </p>
+            <div class="relic-choice" id="bossRelicChoice" hidden></div>
             <button class="primary-button" id="primaryAction">Начать восхождение</button>
           </div>
         </div>

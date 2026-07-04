@@ -47,6 +47,7 @@
   const MODES = {
     MENU: "menu",
     PLAYING: "playing",
+    RELIC_CHOICE: "relicChoice",
     VICTORY: "victory",
     GAME_OVER: "gameOver",
   };
@@ -845,6 +846,7 @@
       refreshFlags(player, flags) {
         flags.firstSpellEcho = true;
         flags.firstSpellEchoManaRefund = Math.max(flags.firstSpellEchoManaRefund, 1);
+        flags.firstSpellEchoMessage = "Зеркало первого мага повторяет первое заклинание этажа.";
       },
     },
     {
@@ -923,6 +925,85 @@
       apply(player) {
         player.flatSpellBonus += 2;
         player.spellCostModifier += 1;
+      },
+    },
+  ];
+
+  const BOSS_RELICS = [
+    {
+      id: "resilienceCore",
+      bossFloor: 5,
+      name: "Ядро стойкости",
+      bonusText: "+3 к максимальному здоровью. Первый полученный урон на каждом этаже уменьшается на 1.",
+      rarity: "bossRelic",
+      cursed: false,
+      apply(player) {
+        changeMaxHp(player, 3);
+      },
+      refreshFlags(player, flags) {
+        flags.firstDamageReduction = Math.max(flags.firstDamageReduction, 1);
+      },
+    },
+    {
+      id: "ancientStoneWeight",
+      bossFloor: 5,
+      name: "Тяжесть древнего камня",
+      bonusText: "Когда враг впервые за этаж подходит вплотную к магу, он замедляется на 1 ход.",
+      rarity: "bossRelic",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.contactSlowTurns = Math.max(flags.contactSlowTurns, 2);
+      },
+    },
+    {
+      id: "bastionShard",
+      bossFloor: 5,
+      name: "Осколок бастиона",
+      bonusText: "После получения урона маг получает 1 щит. Срабатывает не чаще одного раза за 3 хода.",
+      rarity: "bossRelic",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.bastionShield += 1;
+        flags.bastionShieldCooldown = Math.max(flags.bastionShieldCooldown, 3);
+      },
+    },
+    {
+      id: "mirrorFocusRelic",
+      bossFloor: 10,
+      name: "Зеркальный фокус",
+      bonusText: "Первое примененное заклинание на каждом этаже срабатывает дважды без второй траты маны.",
+      rarity: "bossRelic",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.firstSpellEcho = true;
+        flags.firstSpellEchoMessage = "Зеркальный фокус повторяет первое заклинание этажа.";
+      },
+    },
+    {
+      id: "glassMemory",
+      bossFloor: 10,
+      name: "Стеклянная память",
+      bonusText: "Если применить три разных заклинания подряд, следующее заклинание стоит на 1 ману дешевле.",
+      rarity: "bossRelic",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.glassMemoryDiscount = Math.max(flags.glassMemoryDiscount, 1);
+      },
+    },
+    {
+      id: "reflectionShard",
+      bossFloor: 10,
+      name: "Осколок отражения",
+      bonusText: "Первый полученный урон на каждом этаже возвращает 1 урон атакующему, если цель известна.",
+      rarity: "bossRelic",
+      cursed: false,
+      apply() {},
+      refreshFlags(player, flags) {
+        flags.firstDamageReflect = Math.max(flags.firstDamageReflect, 1);
       },
     },
   ];
@@ -1394,9 +1475,11 @@
     nearbyText: document.getElementById("nearbyText"),
     eventLog: document.getElementById("eventLog"),
     overlay: document.getElementById("screenOverlay"),
+    overlayContent: document.getElementById("overlayContent"),
     overlayKicker: document.getElementById("overlayKicker"),
     overlayTitle: document.getElementById("overlayTitle"),
     overlayText: document.getElementById("overlayText"),
+    bossRelicChoice: document.getElementById("bossRelicChoice"),
     primaryAction: document.getElementById("primaryAction"),
   };
 
@@ -1424,6 +1507,9 @@
     evolutionChoiceSlotIndex: null,
     pendingManaRefund: 0,
     currentSpellDamageBonus: 0,
+    pendingBossRelicChoices: [],
+    pendingBossRelicExit: null,
+    pendingBossRelicFloor: null,
     idCounter: 1,
     lastMoveDir: { x: 1, y: 0 },
   };
@@ -1495,6 +1581,9 @@
       state.player.lastSpellElement !== spell.element
     ) {
       artifactDiscount += flags.alternatingElementDiscount;
+    }
+    if (flags.glassMemoryDiscount > 0 && state.player?.glassMemoryDiscountAvailable) {
+      artifactDiscount += flags.glassMemoryDiscount;
     }
     return Math.max(0, spell.cost + (state.player?.spellCostModifier || 0) + evolutionCost - artifactDiscount);
   }
@@ -1576,6 +1665,13 @@
       burnTickBonus: 0,
       firstSpellEcho: false,
       firstSpellEchoManaRefund: 0,
+      firstSpellEchoMessage: "Зеркало первого мага повторяет первое заклинание этажа.",
+      firstDamageReduction: 0,
+      contactSlowTurns: 0,
+      bastionShield: 0,
+      bastionShieldCooldown: 0,
+      glassMemoryDiscount: 0,
+      firstDamageReflect: 0,
       lastChance: false,
     };
   }
@@ -1668,7 +1764,8 @@
   }
 
   function artifactById(id) {
-    return ARTIFACTS.find((artifact) => artifact.id === id);
+    return ARTIFACTS.find((artifact) => artifact.id === id) ||
+      BOSS_RELICS.find((artifact) => artifact.id === id);
   }
 
   function getActForFloor(floor) {
@@ -1736,6 +1833,44 @@
     return sample(actUncollected.length ? actUncollected : pool.length ? pool : fallbackPool);
   }
 
+  function chooseBossRelicOptions(floor) {
+    const collectedIds = new Set(state.player.artifacts.map((artifact) => artifact.id));
+    const pool = BOSS_RELICS.filter((relic) =>
+      relic.bossFloor === floor &&
+      !collectedIds.has(relic.id)
+    );
+    const options = [];
+    while (pool.length && options.length < 3) {
+      options.push(pool.splice(randomInt(0, pool.length - 1), 1)[0]);
+    }
+    return options;
+  }
+
+  function spawnBossStairs(exit) {
+    state.objects.push({
+      id: nextId(),
+      type: EVENT_TYPES.STAIRS,
+      x: exit.x,
+      y: exit.y,
+    });
+    updateVision();
+    addLog("После победы над стражем открывается переход выше.");
+  }
+
+  function openBossRelicChoice(floor, exit) {
+    const choices = chooseBossRelicOptions(floor);
+    if (!choices.length) {
+      return false;
+    }
+
+    state.pendingBossRelicChoices = choices;
+    state.pendingBossRelicExit = { x: exit.x, y: exit.y };
+    state.pendingBossRelicFloor = floor;
+    addLog("Сила поверженного босса принимает форму реликвий. Выберите одну.");
+    setMode(MODES.RELIC_CHOICE);
+    return true;
+  }
+
   function addLog(message) {
     state.logs.push(message);
     state.logs = state.logs.slice(-CONFIG.logLimit);
@@ -1790,6 +1925,12 @@
       artifactFlags: createArtifactFlags(),
       artifactKillManaAvailable: true,
       windFeatherCooldown: 0,
+      bastionShardCooldown: 0,
+      relicFirstDamageReductionAvailable: false,
+      relicContactSlowEnemyIds: new Set(),
+      relicReflectAvailable: false,
+      glassMemoryChain: [],
+      glassMemoryDiscountAvailable: false,
       spellsCastThisFloor: 0,
       lastSpellElement: null,
       nextSpellDamageBonus: 0,
@@ -1815,6 +1956,9 @@
     state.evolutionChoiceSlotIndex = null;
     state.pendingManaRefund = 0;
     state.currentSpellDamageBonus = 0;
+    state.pendingBossRelicChoices = [];
+    state.pendingBossRelicExit = null;
+    state.pendingBossRelicFloor = null;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
 
@@ -1847,6 +1991,9 @@
     state.player.spellsCastThisFloor = 0;
     state.player.artifactKillManaAvailable = true;
     refreshArtifactFlags();
+    state.player.relicFirstDamageReductionAvailable = artifactFlags().firstDamageReduction > 0;
+    state.player.relicContactSlowEnemyIds = new Set();
+    state.player.relicReflectAvailable = artifactFlags().firstDamageReflect > 0;
     state.player.mana = Math.min(state.player.maxMana, state.player.mana + REWARD_RULES.floorManaRestore);
     placeFloorContent(floorData);
     updateVision();
@@ -2507,6 +2654,13 @@
       return;
     }
 
+    if (state.mode === MODES.RELIC_CHOICE) {
+      if (["1", "2", "3"].includes(key)) {
+        chooseBossRelic(Number(key) - 1);
+      }
+      return;
+    }
+
     if (key === "escape") {
       setMode(MODES.MENU);
       return;
@@ -2672,17 +2826,10 @@
   }
 
   function applyArtifact(artifact, player = state.player) {
-    artifact.apply(player);
+    artifact.apply?.(player);
   }
 
-  function collectArtifact(object) {
-    const artifact = artifactById(object.artifactId);
-    if (!artifact) {
-      addLog("Артефакт рассыпается, не оставив следа.");
-      state.objects = state.objects.filter((item) => item.id !== object.id);
-      return;
-    }
-
+  function addArtifactToPlayer(artifact) {
     applyArtifact(artifact);
     state.player.artifacts.push({
       id: artifact.id,
@@ -2696,6 +2843,37 @@
       spent: false,
     });
     refreshArtifactFlags();
+  }
+
+  function chooseBossRelic(index) {
+    const relic = state.pendingBossRelicChoices[index];
+    if (!relic || state.mode !== MODES.RELIC_CHOICE) {
+      return;
+    }
+
+    addArtifactToPlayer(relic);
+    addLog(`Босс-реликвия выбрана: ${relic.name}. ${relic.bonusText}`);
+
+    const exit = state.pendingBossRelicExit;
+    state.pendingBossRelicChoices = [];
+    state.pendingBossRelicExit = null;
+    state.pendingBossRelicFloor = null;
+
+    if (exit) {
+      spawnBossStairs(exit);
+    }
+    setMode(MODES.PLAYING);
+  }
+
+  function collectArtifact(object) {
+    const artifact = artifactById(object.artifactId);
+    if (!artifact) {
+      addLog("Артефакт рассыпается, не оставив следа.");
+      state.objects = state.objects.filter((item) => item.id !== object.id);
+      return;
+    }
+
+    addArtifactToPlayer(artifact);
     state.objects = state.objects.filter((item) => item.id !== object.id);
     addLog(`${artifact.cursed ? "Проклятый артефакт" : "Артефакт"}: ${artifact.name}. ${artifact.bonusText}`);
     if (artifact.cursed) {
@@ -2728,6 +2906,35 @@
     }
   }
 
+  function updateGlassMemoryAfterSpellCast(spell, discountWasUsed) {
+    const flags = artifactFlags();
+    if (flags.glassMemoryDiscount <= 0) {
+      return;
+    }
+
+    if (discountWasUsed) {
+      state.player.glassMemoryDiscountAvailable = false;
+      state.player.glassMemoryChain = [spell.id];
+      addLog("Стеклянная память сбрасывает узор после скидки.");
+      return;
+    }
+
+    const chain = state.player.glassMemoryChain || [];
+    const existingIndex = chain.indexOf(spell.id);
+    const nextChain = existingIndex >= 0
+      ? chain.slice(existingIndex + 1)
+      : [...chain];
+    nextChain.push(spell.id);
+
+    if (nextChain.length >= 3) {
+      state.player.glassMemoryChain = [];
+      state.player.glassMemoryDiscountAvailable = true;
+      addLog("Стеклянная память готовит скидку для следующего заклинания.");
+    } else {
+      state.player.glassMemoryChain = nextChain;
+    }
+  }
+
   function castSelectedSpell() {
     const spellId = state.player.spells[state.selectedSpellIndex];
     if (!spellId) {
@@ -2747,12 +2954,13 @@
     state.currentSpellDamageBonus = state.player.nextSpellDamageBonus || 0;
     const flags = artifactFlags();
     const shouldEchoFirstSpell = flags.firstSpellEcho && state.player.spellsCastThisFloor === 0;
+    const usedGlassMemoryDiscount = flags.glassMemoryDiscount > 0 && state.player.glassMemoryDiscountAvailable;
     const acted = castSpell(spell);
     if (acted) {
       state.player.nextSpellDamageBonus = 0;
       applyArtifactAfterSpellCast(spell);
       if (shouldEchoFirstSpell && state.mode === MODES.PLAYING) {
-        addLog("Зеркало первого мага повторяет первое заклинание этажа.");
+        addLog(flags.firstSpellEchoMessage || "Первое заклинание этажа повторяется.");
         const echoed = castSpell(spell);
         if (echoed) {
           applyArtifactAfterSpellCast(spell);
@@ -2765,6 +2973,9 @@
         state.player.freeSpellAvailable = false;
         addLog("Экономный колдун сохраняет ману.");
       }
+      if (usedGlassMemoryDiscount) {
+        addLog(`Стеклянная память снижает стоимость заклинания на ${flags.glassMemoryDiscount} ману.`);
+      }
       if (state.pendingManaRefund > 0) {
         const refund = state.pendingManaRefund;
         state.player.mana = Math.min(state.player.maxMana, state.player.mana + refund);
@@ -2774,6 +2985,7 @@
       state.currentSpellDamageBonus = 0;
       state.player.spellsCastThisFloor += 1;
       state.player.lastSpellElement = spell.element;
+      updateGlassMemoryAfterSpellCast(spell, usedGlassMemoryDiscount);
       addEffect(state.player.x, state.player.y, ELEMENT_COLORS[spell.element], 5, spell.name);
       advanceTurn();
     } else {
@@ -3383,14 +3595,11 @@
       return;
     }
 
-    state.objects.push({
-      id: nextId(),
-      type: EVENT_TYPES.STAIRS,
-      x: enemy.x,
-      y: enemy.y,
-    });
-    updateVision();
-    addLog("После победы над стражем открывается переход выше.");
+    if (openBossRelicChoice(state.floor, enemy)) {
+      return;
+    }
+
+    spawnBossStairs(enemy);
   }
 
   function applyDamageShieldArtifact() {
@@ -3401,6 +3610,29 @@
     state.player.shield += flags.damageShield;
     state.player.windFeatherCooldown = flags.damageShieldCooldown || 4;
     addLog(`Перо вихря дает ${flags.damageShield} щита после удара.`);
+  }
+
+  function applyBastionShardRelic() {
+    const flags = artifactFlags();
+    if (flags.bastionShield <= 0 || state.player.bastionShardCooldown > 0) {
+      return;
+    }
+    state.player.shield += flags.bastionShield;
+    state.player.bastionShardCooldown = flags.bastionShieldCooldown || 3;
+    addLog(`Осколок бастиона дает ${flags.bastionShield} щит после удара.`);
+  }
+
+  function applyReflectionShardRelic(sourceEnemy) {
+    const flags = artifactFlags();
+    if (!state.player.relicReflectAvailable || flags.firstDamageReflect <= 0) {
+      return;
+    }
+    state.player.relicReflectAvailable = false;
+    if (!sourceEnemy || !state.enemies.includes(sourceEnemy)) {
+      return;
+    }
+    addLog(`Осколок отражения возвращает ${flags.firstDamageReflect} урон атакующему.`);
+    damageEnemy(sourceEnemy, flags.firstDamageReflect, "осколок отражения");
   }
 
   function triggerLastChanceArtifact() {
@@ -3417,7 +3649,7 @@
     return true;
   }
 
-  function damagePlayer(amount, message) {
+  function damagePlayer(amount, message, sourceEnemy = null) {
     if (amount <= 0 || state.mode !== MODES.PLAYING) {
       return;
     }
@@ -3427,6 +3659,15 @@
       return;
     }
     let remaining = amount;
+    const flags = artifactFlags();
+    if (state.player.relicFirstDamageReductionAvailable && flags.firstDamageReduction > 0) {
+      const reduced = Math.min(remaining, flags.firstDamageReduction);
+      remaining -= reduced;
+      state.player.relicFirstDamageReductionAvailable = false;
+      if (reduced > 0) {
+        addLog(`Ядро стойкости снижает первый урон этажа на ${reduced}.`);
+      }
+    }
     if (state.player.damageReductionTurns > 0 && state.player.damageReduction > 0) {
       const reduced = Math.min(remaining, state.player.damageReduction);
       remaining -= reduced;
@@ -3446,6 +3687,8 @@
       addEffect(state.player.x, state.player.y, "#ff4d5a", 8, String(remaining));
       if (state.player.hp > 0) {
         applyDamageShieldArtifact();
+        applyBastionShardRelic();
+        applyReflectionShardRelic(sourceEnemy);
       }
     }
     if (state.player.hp <= 0) {
@@ -3523,6 +3766,9 @@
     }
     if (state.player.windFeatherCooldown > 0) {
       state.player.windFeatherCooldown -= 1;
+    }
+    if (state.player.bastionShardCooldown > 0) {
+      state.player.bastionShardCooldown -= 1;
     }
   }
 
@@ -3637,7 +3883,7 @@
 
     const dist = distance(enemy, state.player);
     if (dist <= enemy.range && hasLineOfSight(enemy, state.player, enemy.range)) {
-      damagePlayer(enemyAttackDamage(enemy), enemyAttackText(enemy));
+      damagePlayer(enemyAttackDamage(enemy), enemyAttackText(enemy), enemy);
       return;
     }
     moveEnemyTowardPlayer(enemy);
@@ -3832,6 +4078,22 @@
     return amount;
   }
 
+  function applyContactSlowRelic(enemy) {
+    const flags = artifactFlags();
+    if (
+      flags.contactSlowTurns <= 0 ||
+      !state.player.relicContactSlowEnemyIds ||
+      state.player.relicContactSlowEnemyIds.has(enemy.id) ||
+      distance(enemy, state.player) > 1
+    ) {
+      return;
+    }
+    state.player.relicContactSlowEnemyIds.add(enemy.id);
+    enemy.slow = Math.max(enemy.slow, flags.contactSlowTurns);
+    addLog(`Тяжесть древнего камня замедляет ${enemy.name}.`);
+    addEffect(enemy.x, enemy.y, ELEMENT_COLORS.earth, 7, "кам");
+  }
+
   function moveEnemyTowardPlayer(enemy) {
     const options = [
       { x: enemy.x + Math.sign(state.player.x - enemy.x), y: enemy.y },
@@ -3850,6 +4112,7 @@
     if (next) {
       enemy.x = next.x;
       enemy.y = next.y;
+      applyContactSlowRelic(enemy);
     }
   }
 
@@ -4252,6 +4515,7 @@
     state.player.artifacts.forEach((artifact) => {
       const card = document.createElement("div");
       const rarity = artifact.rarity || (artifact.cursed ? "cursed" : "common");
+      const isBossRelic = rarity === "bossRelic";
       const tier = artifact.tier || 1;
       const rarityLabel = ARTIFACT_RARITY_LABELS[rarity] || "Обычный";
       card.className = [
@@ -4259,12 +4523,12 @@
         artifact.cursed ? "is-cursed" : "",
         artifact.active === false || artifact.spent ? "is-spent" : "",
         `rarity-${cssClassToken(rarity)}`,
-        `tier-${tier}`,
+        isBossRelic ? "" : `tier-${tier}`,
       ].filter(Boolean).join(" ");
       card.innerHTML = `
         <div class="artifact-title">
           <span>${artifact.name}</span>
-          <strong>${rarityLabel} · T${tier}</strong>
+          <strong>${isBossRelic ? rarityLabel : `${rarityLabel} · T${tier}`}</strong>
         </div>
         <div class="artifact-meta">${artifact.bonusText}</div>
         ${artifact.cursed ? `<div class="artifact-curse">${artifact.curseText}</div>` : ""}
@@ -4306,14 +4570,49 @@
     dom.eventLog.scrollTop = dom.eventLog.scrollHeight;
   }
 
+  function renderBossRelicChoices() {
+    if (!dom.bossRelicChoice) {
+      return;
+    }
+    dom.bossRelicChoice.innerHTML = "";
+    state.pendingBossRelicChoices.forEach((relic, index) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "relic-choice-card";
+      card.innerHTML = `
+        <span class="relic-choice-hotkey">${index + 1}</span>
+        <span class="relic-choice-rarity">${ARTIFACT_RARITY_LABELS[relic.rarity] || "Босс-реликвия"}</span>
+        <strong>${relic.name}</strong>
+        <span class="relic-choice-effect">${relic.bonusText}</span>
+      `;
+      card.addEventListener("click", () => chooseBossRelic(index));
+      dom.bossRelicChoice.appendChild(card);
+    });
+  }
+
   function updateOverlay() {
+    const isRelicChoice = state.mode === MODES.RELIC_CHOICE;
     dom.overlay.classList.toggle("is-visible", state.mode !== MODES.PLAYING);
+    dom.overlayContent?.classList.toggle("is-relic-choice", isRelicChoice);
+    if (dom.bossRelicChoice) {
+      dom.bossRelicChoice.hidden = !isRelicChoice;
+      if (!isRelicChoice) {
+        dom.bossRelicChoice.innerHTML = "";
+      }
+    }
+    dom.primaryAction.style.display = isRelicChoice ? "none" : "";
+
     if (state.mode === MODES.MENU) {
       dom.overlayKicker.textContent = "Древняя башня ждет";
       dom.overlayTitle.textContent = "Башня последнего мага";
       dom.overlayText.textContent =
         "Пройдите 15 процедурных этажей, найдите книги заклинаний и победите Сердце башни. Каменный архиголем и Зеркальный архимаг ждут как испытания на 5 и 10 этажах.";
       dom.primaryAction.textContent = "Начать восхождение";
+    } else if (isRelicChoice) {
+      dom.overlayKicker.textContent = `Босс повержен · этаж ${state.pendingBossRelicFloor}`;
+      dom.overlayTitle.textContent = "Выберите босс-реликвию";
+      dom.overlayText.textContent = "Возьмите одну универсальную реликвию. Башня продолжит движение только после выбора.";
+      renderBossRelicChoices();
     } else if (state.mode === MODES.VICTORY) {
       dom.overlayKicker.textContent = "Победа";
       dom.overlayTitle.textContent = "Башня спасена";
@@ -4329,7 +4628,11 @@
     }
   }
 
-  dom.primaryAction.addEventListener("click", newGame);
+  dom.primaryAction.addEventListener("click", () => {
+    if (state.mode !== MODES.RELIC_CHOICE) {
+      newGame();
+    }
+  });
   document.addEventListener("keydown", handleKeyDown);
 
   state.map = createEmptyMap();
