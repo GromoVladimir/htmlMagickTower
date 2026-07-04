@@ -213,6 +213,17 @@ canvas {
   filter: grayscale(0.25);
 }
 
+.relic-choice-card.secret-choice-card.is-secret {
+  border-color: #9ee7ff;
+  background: linear-gradient(180deg, #172532, #141923);
+  box-shadow: inset 0 0 0 1px rgba(158, 231, 255, 0.18);
+}
+
+.relic-choice-card.secret-choice-card.is-secret .relic-choice-rarity,
+.relic-choice-card.secret-choice-card.is-secret .relic-choice-hotkey {
+  color: #bff4ff;
+}
+
 .relic-choice-hotkey {
   position: absolute;
   top: 10px;
@@ -388,6 +399,12 @@ canvas {
   box-shadow: inset 0 0 0 1px rgba(244, 211, 94, 0.18);
 }
 
+.artifact-card.rarity-secret {
+  border-color: #9ee7ff;
+  background: #121c24;
+  box-shadow: inset 0 0 0 1px rgba(158, 231, 255, 0.2);
+}
+
 .artifact-card.rarity-boss-relic {
   border-color: #ef6f8f;
 }
@@ -435,6 +452,10 @@ canvas {
 
 .artifact-card.rarity-legendary .artifact-title strong {
   color: #ffd66d;
+}
+
+.artifact-card.rarity-secret .artifact-title strong {
+  color: #bff4ff;
 }
 
 .artifact-card.rarity-boss-relic .artifact-title strong {

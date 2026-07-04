@@ -10,6 +10,12 @@
     roomAttempts: 130,
     manaRegenEvery: 4,
     eventRoomChance: 0.35,
+    secretRoom: {
+      runChance: 0.55,
+      floorRange: [6, 12],
+      excludedFloors: [5, 10, 15],
+      hintRadius: 6,
+    },
     basePlayer: {
       hp: 10,
       maxHp: 10,
@@ -35,6 +41,7 @@
       artifact: "#f4d35e",
       cursedArtifact: "#d65cff",
       eventRoom: "#82e6c8",
+      secretRoom: "#9ee7ff",
       fog: "#020309",
       exploredFog: "rgba(2, 3, 9, 0.68)",
     },
@@ -51,6 +58,7 @@
     PLAYING: "playing",
     RELIC_CHOICE: "relicChoice",
     EVENT_CHOICE: "eventChoice",
+    SECRET_REWARD_CHOICE: "secretRewardChoice",
     VICTORY: "victory",
     GAME_OVER: "gameOver",
   };
@@ -84,6 +92,7 @@
     rare: "Редкий",
     epic: "Эпический",
     legendary: "Легендарный",
+    secret: "Секретный",
     cursed: "Проклятый",
     bossRelic: "Босс-реликвия",
   };
@@ -932,6 +941,22 @@
     },
   ];
 
+  const SECRET_ARTIFACTS = [
+    {
+      id: "forgottenArchmageKey",
+      name: "Ключ забытого архимага",
+      bonusText: "+1 осколок магии сразу. Восстанавливает всю ману. Первое улучшение или эволюция заклинания после получения стоит на 1 осколок дешевле.",
+      tier: 3,
+      rarity: "secret",
+      cursed: false,
+      apply(player) {
+        player.magicShards += 1;
+        player.mana = player.maxMana;
+        player.spellUpgradeDiscount = Math.max(player.spellUpgradeDiscount || 0, 1);
+      },
+    },
+  ];
+
   const BOSS_RELICS = [
     {
       id: "resilienceCore",
@@ -1572,6 +1597,8 @@
     TRAP: "trap",
     ARTIFACT: "artifact",
     EVENT_ROOM: "eventRoom",
+    SECRET_ENTRANCE: "secretEntrance",
+    SECRET_ALTAR: "secretAltar",
   };
 
   const EVENT_ROOM_DEFINITIONS = {
@@ -1608,6 +1635,51 @@
       description: "-1 к максимальной мане.",
     },
   };
+
+  const SECRET_HINT_MESSAGES = [
+    "Где-то поблизости камни звучат пусто.",
+    "На стенах проступают едва заметные руны.",
+    "Ты чувствуешь сквозняк там, где его не должно быть.",
+  ];
+
+  const SECRET_REWARD_DEFINITIONS = [
+    {
+      id: "forgottenArchmageKey",
+      title: "Ключ забытого архимага",
+      rarity: "secret",
+      effect: "+1 осколок магии, полная мана, следующее улучшение или эволюция дешевле на 1 осколок.",
+    },
+    {
+      id: "pureMagicShard",
+      title: "Осколок чистой магии",
+      rarity: "reward",
+      effect: "+1 осколок магии.",
+    },
+    {
+      id: "masteryRune",
+      title: "Руна мастерства",
+      rarity: "reward",
+      effect: "Бесплатно улучшает выбранное известное заклинание на 1 уровень, если это возможно.",
+    },
+    {
+      id: "lifeSpring",
+      title: "Источник жизни",
+      rarity: "reward",
+      effect: "Полностью восстанавливает здоровье и ману. +1 к максимальному здоровью.",
+    },
+    {
+      id: "cleansingSeal",
+      title: "Печать очищения",
+      rarity: "reward",
+      effect: "Снимает одно слабое проклятие. Если проклятий нет, дает +1 к максимальной мане.",
+    },
+    {
+      id: "secretArtifact",
+      title: "Тайный артефакт",
+      rarity: "reward",
+      effect: "Случайный эпический или легендарный артефакт текущего акта.",
+    },
+  ];
 
   const dom = {
     canvas: document.getElementById("gameCanvas"),
@@ -1662,6 +1734,13 @@
     pendingBossRelicExit: null,
     pendingBossRelicFloor: null,
     pendingEvent: null,
+    pendingSecretRewardChoices: [],
+    pendingSecretAltarId: null,
+    secretRoomFloor: null,
+    secretRoomDiscovered: false,
+    secretRoomOpened: false,
+    secretRewardClaimed: false,
+    secretEntranceId: null,
     activeChallenge: null,
     idCounter: 1,
     lastMoveDir: { x: 1, y: 0 },
@@ -1856,13 +1935,39 @@
     return state.player?.artifactFlags || createArtifactFlags();
   }
 
+  function spellUpgradeDiscount() {
+    return Math.max(0, state.player?.spellUpgradeDiscount || 0);
+  }
+
+  function discountedShardCost(baseCost) {
+    return Math.max(0, baseCost - spellUpgradeDiscount());
+  }
+
+  function consumeSpellUpgradeDiscount(baseCost) {
+    const discount = Math.min(spellUpgradeDiscount(), baseCost);
+    if (discount <= 0) {
+      return 0;
+    }
+    state.player.spellUpgradeDiscount = 0;
+    addLog(`Ключ забытого архимага снижает стоимость на ${discount} осколок.`);
+    return discount;
+  }
+
+  function upgradeCost(upgrade) {
+    return discountedShardCost(upgrade?.cost || 0);
+  }
+
+  function currentEvolutionCost() {
+    return discountedShardCost(EVOLUTION_COST);
+  }
+
   function canEvolveSpell(spellId) {
     return Boolean(
       state.player &&
       spellLevel(spellId) >= MAX_SPELL_LEVEL &&
       !hasEvolution(spellId) &&
       evolutionOptions(spellId).length &&
-      state.player.magicShards >= EVOLUTION_COST
+      state.player.magicShards >= currentEvolutionCost()
     );
   }
 
@@ -1918,6 +2023,7 @@
 
   function artifactById(id) {
     return ARTIFACTS.find((artifact) => artifact.id === id) ||
+      SECRET_ARTIFACTS.find((artifact) => artifact.id === id) ||
       BOSS_RELICS.find((artifact) => artifact.id === id);
   }
 
@@ -2045,7 +2151,7 @@
     return true;
   }
 
-  function removeWeakCurse() {
+  function removeWeakCurse(sourceText = "Фонтан смывает проклятие") {
     if (!state.player?.curses?.length) {
       addLog("Слабых проклятий нет.");
       return false;
@@ -2055,7 +2161,7 @@
     if (curse.manaPenalty > 0) {
       changeMaxMana(state.player, curse.manaPenalty);
     }
-    addLog(`Фонтан смывает проклятие: ${curse.name}.`);
+    addLog(`${sourceText}: ${curse.name}.`);
     return true;
   }
 
@@ -2159,6 +2265,7 @@
       floorSpellDamageBonus: 0,
       spellDamageMultiplier: 1,
       spellCostModifier: 0,
+      spellUpgradeDiscount: 0,
       elementBonus: {},
       manaRegenEvery: CONFIG.manaRegenEvery,
       blocksFirstHit: false,
@@ -2194,6 +2301,21 @@
     };
   }
 
+  function chooseSecretRoomFloor() {
+    const settings = CONFIG.secretRoom;
+    if (Math.random() >= settings.runChance) {
+      return null;
+    }
+
+    const candidates = [];
+    for (let floor = settings.floorRange[0]; floor <= settings.floorRange[1]; floor += 1) {
+      if (!settings.excludedFloors.includes(floor) && !BOSSES_BY_FLOOR[floor]) {
+        candidates.push(floor);
+      }
+    }
+    return candidates.length ? sample(candidates) : null;
+  }
+
   function newGame() {
     state.floor = 1;
     state.turn = 0;
@@ -2215,6 +2337,13 @@
     state.pendingBossRelicExit = null;
     state.pendingBossRelicFloor = null;
     state.pendingEvent = null;
+    state.pendingSecretRewardChoices = [];
+    state.pendingSecretAltarId = null;
+    state.secretRoomFloor = chooseSecretRoomFloor();
+    state.secretRoomDiscovered = false;
+    state.secretRoomOpened = false;
+    state.secretRewardClaimed = false;
+    state.secretEntranceId = null;
     state.activeChallenge = null;
     state.lastMoveDir = { x: 1, y: 0 };
     state.player = createPlayer();
@@ -2237,6 +2366,8 @@
     state.barriers = [];
     state.effects = [];
     state.pendingEvent = null;
+    state.pendingSecretRewardChoices = [];
+    state.pendingSecretAltarId = null;
     state.activeChallenge = null;
     const floorData = generateFloor(floor);
     state.map = floorData.map;
@@ -2259,6 +2390,7 @@
     state.player.mana = Math.min(state.player.maxMana, state.player.mana + REWARD_RULES.floorManaRestore);
     placeFloorContent(floorData);
     updateVision();
+    checkSecretEntranceProximity();
     const floorStartShield = artifactFlags().floorStartShield;
     if (floorStartShield > 0) {
       state.player.shield += floorStartShield;
@@ -2403,6 +2535,7 @@
     }
     placeArtifacts(floorData, rules);
     placeFloorEvent(floorData);
+    placeSecretRoom(floorData);
   }
 
   function placeBoss(floorData) {
@@ -2527,6 +2660,139 @@
       });
       return;
     }
+  }
+
+  function secretPlacementCandidates(room) {
+    const candidates = [];
+    for (let x = room.x + 1; x < room.x + room.w - 1; x += 1) {
+      candidates.push({
+        entrance: { x, y: room.y - 1 },
+        room: { x: x - 1, y: room.y - 4, w: 3, h: 3, secret: true },
+        altar: { x, y: room.y - 3 },
+        normalCell: { x, y: room.y },
+      });
+      candidates.push({
+        entrance: { x, y: room.y + room.h },
+        room: { x: x - 1, y: room.y + room.h + 1, w: 3, h: 3, secret: true },
+        altar: { x, y: room.y + room.h + 2 },
+        normalCell: { x, y: room.y + room.h - 1 },
+      });
+    }
+
+    for (let y = room.y + 1; y < room.y + room.h - 1; y += 1) {
+      candidates.push({
+        entrance: { x: room.x - 1, y },
+        room: { x: room.x - 4, y: y - 1, w: 3, h: 3, secret: true },
+        altar: { x: room.x - 3, y },
+        normalCell: { x: room.x, y },
+      });
+      candidates.push({
+        entrance: { x: room.x + room.w, y },
+        room: { x: room.x + room.w + 1, y: y - 1, w: 3, h: 3, secret: true },
+        altar: { x: room.x + room.w + 2, y },
+        normalCell: { x: room.x + room.w - 1, y },
+      });
+    }
+    return candidates;
+  }
+
+  function cellInRoom(cell, room) {
+    return cell.x >= room.x && cell.x < room.x + room.w &&
+      cell.y >= room.y && cell.y < room.y + room.h;
+  }
+
+  function secretPlacementIsValid(placement) {
+    const { entrance, room, altar, normalCell } = placement;
+    if (
+      room.x <= 1 ||
+      room.y <= 1 ||
+      room.x + room.w >= CONFIG.mapWidth - 1 ||
+      room.y + room.h >= CONFIG.mapHeight - 1 ||
+      !isInside(entrance.x, entrance.y) ||
+      state.map[entrance.y][entrance.x] !== TILES.WALL ||
+      !isWalkable(normalCell.x, normalCell.y) ||
+      !cellInRoom(altar, room)
+    ) {
+      return false;
+    }
+
+    for (let y = room.y; y < room.y + room.h; y += 1) {
+      for (let x = room.x; x < room.x + room.w; x += 1) {
+        if (state.map[y][x] !== TILES.WALL || objectAt(x, y) || enemyAt(x, y)) {
+          return false;
+        }
+      }
+    }
+
+    for (let y = room.y - 1; y <= room.y + room.h; y += 1) {
+      for (let x = room.x - 1; x <= room.x + room.w; x += 1) {
+        if (!isInside(x, y) || cellInRoom({ x, y }, room) || (x === entrance.x && y === entrance.y)) {
+          continue;
+        }
+        if (state.map[y][x] !== TILES.WALL) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  function findSecretRoomPlacement(floorData) {
+    const sideRooms = floorData.rooms.filter((room) =>
+      room !== floorData.startRoom &&
+      room !== floorData.exitRoom
+    );
+    const rooms = [...(sideRooms.length ? sideRooms : floorData.rooms.slice(1))];
+    while (rooms.length) {
+      const room = rooms.splice(randomInt(0, rooms.length - 1), 1)[0];
+      const candidates = secretPlacementCandidates(room);
+      while (candidates.length) {
+        const placement = candidates.splice(randomInt(0, candidates.length - 1), 1)[0];
+        if (secretPlacementIsValid(placement)) {
+          return placement;
+        }
+      }
+    }
+    return null;
+  }
+
+  function placeSecretRoom(floorData) {
+    if (
+      state.floor !== state.secretRoomFloor ||
+      state.secretEntranceId ||
+      state.secretRewardClaimed ||
+      BOSSES_BY_FLOOR[state.floor]
+    ) {
+      return;
+    }
+
+    const placement = findSecretRoomPlacement(floorData);
+    if (!placement) {
+      return;
+    }
+
+    carveRoom(state.map, placement.room);
+    state.rooms.push(placement.room);
+
+    const entranceId = nextId();
+    state.secretEntranceId = entranceId;
+    state.objects.push({
+      id: entranceId,
+      type: EVENT_TYPES.SECRET_ENTRANCE,
+      x: placement.entrance.x,
+      y: placement.entrance.y,
+      opened: false,
+      discovered: false,
+      hintShown: false,
+    });
+    state.objects.push({
+      id: nextId(),
+      type: EVENT_TYPES.SECRET_ALTAR,
+      x: placement.altar.x,
+      y: placement.altar.y,
+      used: false,
+    });
   }
 
   function chooseFirstFloorBooks() {
@@ -2735,6 +3001,69 @@
     });
   }
 
+  function currentSecretEntrance() {
+    return state.objects.find((object) => object.type === EVENT_TYPES.SECRET_ENTRANCE) || null;
+  }
+
+  function revealSecretEntrance(entrance) {
+    if (!entrance || entrance.discovered) {
+      return;
+    }
+    entrance.discovered = true;
+    state.secretRoomDiscovered = true;
+  }
+
+  function openSecretEntrance(entrance, message) {
+    if (!entrance) {
+      return false;
+    }
+    revealSecretEntrance(entrance);
+    if (entrance.opened) {
+      addLog("Тайный проход уже открыт.");
+      return false;
+    }
+
+    entrance.opened = true;
+    state.secretRoomOpened = true;
+    state.map[entrance.y][entrance.x] = TILES.FLOOR;
+    addEffect(entrance.x, entrance.y, CONFIG.colors.secretRoom, 10, "руна");
+    updateVision();
+    addLog(message || "Скрытая стена отъезжает в сторону, открывая тайную комнату.");
+    return true;
+  }
+
+  function nearbySecretEntrance(maxDistance = CONFIG.secretRoom.hintRadius) {
+    const entrance = currentSecretEntrance();
+    if (!entrance || entrance.opened || !state.player) {
+      return null;
+    }
+    return distance(entrance, state.player) <= maxDistance ? entrance : null;
+  }
+
+  function checkSecretEntranceProximity() {
+    const entrance = nearbySecretEntrance();
+    if (!entrance) {
+      return;
+    }
+
+    revealSecretEntrance(entrance);
+    if (!entrance.hintShown) {
+      entrance.hintShown = true;
+      addLog(sample(SECRET_HINT_MESSAGES));
+    }
+  }
+
+  function tryOpenSecretEntranceWithSpell(spell) {
+    const entrance = nearbySecretEntrance(1);
+    if (!entrance) {
+      return false;
+    }
+    return openSecretEntrance(
+      entrance,
+      `${spell.name} отзывается на пустоту в камне. Тайный проход открывается.`
+    );
+  }
+
   function enemyAt(x, y) {
     return state.enemies.find((enemy) => enemy.x === x && enemy.y === y && enemy.hp > 0);
   }
@@ -2854,12 +3183,14 @@
       return;
     }
 
-    if (state.player.magicShards < upgrade.cost) {
-      addLog(`Не хватает осколков магии: нужно ${upgrade.cost}.`);
+    const cost = upgradeCost(upgrade);
+    if (state.player.magicShards < cost) {
+      addLog(`Не хватает осколков магии: нужно ${cost}.`);
       return;
     }
 
-    state.player.magicShards -= upgrade.cost;
+    state.player.magicShards -= cost;
+    consumeSpellUpgradeDiscount(upgrade.cost);
     state.player.spellLevels[spellId] = level + 1;
     clearEvolutionChoice();
     addLog(`${spell.name} усилено до уровня ${level + 1}: ${upgrade.text}.`);
@@ -2888,8 +3219,9 @@
       return;
     }
 
-    if (state.player.magicShards < EVOLUTION_COST) {
-      addLog(`Не хватает осколков магии для эволюции: нужно ${EVOLUTION_COST}.`);
+    const cost = currentEvolutionCost();
+    if (state.player.magicShards < cost) {
+      addLog(`Не хватает осколков магии для эволюции: нужно ${cost}.`);
       clearEvolutionChoice();
       return;
     }
@@ -2933,13 +3265,15 @@
       return;
     }
 
-    if (state.player.magicShards < EVOLUTION_COST) {
+    const cost = currentEvolutionCost();
+    if (state.player.magicShards < cost) {
       clearEvolutionChoice();
-      addLog(`Не хватает осколков магии для эволюции: нужно ${EVOLUTION_COST}.`);
+      addLog(`Не хватает осколков магии для эволюции: нужно ${cost}.`);
       return;
     }
 
-    state.player.magicShards -= EVOLUTION_COST;
+    state.player.magicShards -= cost;
+    consumeSpellUpgradeDiscount(EVOLUTION_COST);
     state.player.spellEvolutions[spellId] = branch.id;
     refreshArtifactFlags();
     clearEvolutionChoice();
@@ -2980,6 +3314,15 @@
         chooseEventChoice(Number(key) - 1);
       } else if (key === "escape") {
         cancelEventChoice();
+      }
+      return;
+    }
+
+    if (state.mode === MODES.SECRET_REWARD_CHOICE) {
+      if (["1", "2", "3"].includes(key)) {
+        chooseSecretReward(Number(key) - 1);
+      } else if (key === "escape") {
+        cancelSecretRewardChoice();
       }
       return;
     }
@@ -3099,7 +3442,9 @@
     const target = here && here.type !== EVENT_TYPES.TRAP ? here : adjacent;
 
     if (!target) {
-      addLog("Здесь не с чем взаимодействовать.");
+      const touchesWall = getAdjacentCells(state.player.x, state.player.y)
+        .some((cell) => !isWalkable(cell.x, cell.y));
+      addLog(touchesWall ? "Здесь только холодный камень." : "Здесь не с чем взаимодействовать.");
       return;
     }
 
@@ -3123,6 +3468,18 @@
 
     if (target.type === EVENT_TYPES.EVENT_ROOM) {
       openEventChoice(target);
+      return;
+    }
+
+    if (target.type === EVENT_TYPES.SECRET_ENTRANCE) {
+      if (openSecretEntrance(target)) {
+        advanceTurn();
+      }
+      return;
+    }
+
+    if (target.type === EVENT_TYPES.SECRET_ALTAR) {
+      openSecretRewardChoice(target);
       return;
     }
 
@@ -3455,6 +3812,150 @@
     }
   }
 
+  function spellCanBeUpgraded(spellId) {
+    return Boolean(spellId && spellLevel(spellId) < MAX_SPELL_LEVEL && nextSpellUpgrade(spellId));
+  }
+
+  function upgradeableSpellForMasteryRune() {
+    const selectedSpellId = state.player.spells[state.selectedSpellIndex];
+    if (spellCanBeUpgraded(selectedSpellId)) {
+      return selectedSpellId;
+    }
+    return state.player.spells.find((spellId) => spellCanBeUpgraded(spellId)) || null;
+  }
+
+  function secretRewardAvailable(reward) {
+    if (reward.id === "masteryRune") {
+      return Boolean(upgradeableSpellForMasteryRune());
+    }
+    return true;
+  }
+
+  function secretRewardOptions() {
+    const keyReward = SECRET_REWARD_DEFINITIONS.find((reward) => reward.id === "forgottenArchmageKey");
+    const pool = SECRET_REWARD_DEFINITIONS.filter((reward) =>
+      reward.id !== "forgottenArchmageKey" &&
+      secretRewardAvailable(reward)
+    );
+    const choices = keyReward ? [keyReward] : [];
+    while (pool.length && choices.length < 3) {
+      choices.push(pool.splice(randomInt(0, pool.length - 1), 1)[0]);
+    }
+    return choices;
+  }
+
+  function openSecretRewardChoice(altar) {
+    if (state.secretRewardClaimed || altar.used) {
+      addLog("Забытый алтарь архимага уже отдал свою силу.");
+      return;
+    }
+
+    state.pendingSecretRewardChoices = secretRewardOptions();
+    state.pendingSecretAltarId = altar.id;
+    addLog("Забытый алтарь архимага раскрывает три редкие награды. Выберите одну.");
+    setMode(MODES.SECRET_REWARD_CHOICE);
+  }
+
+  function cancelSecretRewardChoice() {
+    state.pendingSecretRewardChoices = [];
+    state.pendingSecretAltarId = null;
+    setMode(MODES.PLAYING);
+    addLog("Вы оставляете забытый алтарь на потом.");
+  }
+
+  function grantMasteryRuneUpgrade() {
+    const spellId = upgradeableSpellForMasteryRune();
+    if (!spellId) {
+      addLog("Руна мастерства не нашла заклинание, которое можно улучшить.");
+      return false;
+    }
+
+    const spell = SPELLS[spellId];
+    const level = spellLevel(spellId);
+    const upgrade = nextSpellUpgrade(spellId);
+    state.player.spellLevels[spellId] = level + 1;
+    refreshArtifactFlags();
+    addLog(`Руна мастерства бесплатно усиливает ${spell.name} до уровня ${level + 1}: ${upgrade.text}.`);
+    return true;
+  }
+
+  function applySecretReward(choice) {
+    if (!choice) {
+      return false;
+    }
+
+    if (choice.id === "forgottenArchmageKey") {
+      const key = artifactById("forgottenArchmageKey");
+      addArtifactToPlayer(key);
+      addLog(`${key.name}: +1 осколок магии, полная мана и скидка на следующее улучшение или эволюцию.`);
+      return true;
+    }
+
+    if (choice.id === "pureMagicShard") {
+      state.player.magicShards += 1;
+      addLog("Осколок чистой магии: +1 осколок магии.");
+      return true;
+    }
+
+    if (choice.id === "masteryRune") {
+      return grantMasteryRuneUpgrade();
+    }
+
+    if (choice.id === "lifeSpring") {
+      changeMaxHp(state.player, 1);
+      state.player.hp = state.player.maxHp;
+      state.player.mana = state.player.maxMana;
+      addLog("Источник жизни полностью восстанавливает здоровье и ману. Максимальное здоровье увеличено на 1.");
+      return true;
+    }
+
+    if (choice.id === "cleansingSeal") {
+      if (state.player.curses?.length) {
+        return removeWeakCurse("Печать очищения снимает проклятие");
+      }
+      changeMaxMana(state.player, 1);
+      addLog("Печать очищения не находит проклятий и расширяет сосуд маны на 1.");
+      return true;
+    }
+
+    if (choice.id === "secretArtifact") {
+      const artifact = chooseEventArtifact({ cursed: false, rarities: ["epic", "legendary"] }) ||
+        chooseEventArtifact({ cursed: false });
+      return grantArtifactReward(artifact, "Тайный артефакт");
+    }
+
+    return false;
+  }
+
+  function chooseSecretReward(index) {
+    const choice = state.pendingSecretRewardChoices[index];
+    if (!choice || state.mode !== MODES.SECRET_REWARD_CHOICE) {
+      return;
+    }
+
+    const altar = state.objects.find((object) => object.id === state.pendingSecretAltarId);
+    if (!altar || altar.used || state.secretRewardClaimed) {
+      addLog("Сила тайного алтаря уже исчерпана.");
+      state.pendingSecretRewardChoices = [];
+      state.pendingSecretAltarId = null;
+      setMode(MODES.PLAYING);
+      return;
+    }
+
+    if (!applySecretReward(choice)) {
+      addLog("Алтарь не смог исполнить этот выбор.");
+      return;
+    }
+
+    altar.used = true;
+    state.secretRewardClaimed = true;
+    state.pendingSecretRewardChoices = [];
+    state.pendingSecretAltarId = null;
+    addLog(`Секретная награда выбрана: ${choice.title}.`);
+    setMode(MODES.PLAYING);
+    advanceTurn();
+  }
+
   function replaceSelectedSpellWithRandom() {
     const slotIndex = state.player.spells[state.selectedSpellIndex] ? state.selectedSpellIndex : 0;
     const oldSpellId = state.player.spells[slotIndex];
@@ -3658,11 +4159,15 @@
     const flags = artifactFlags();
     const shouldEchoFirstSpell = flags.firstSpellEcho && state.player.spellsCastThisFloor === 0;
     const usedGlassMemoryDiscount = flags.glassMemoryDiscount > 0 && state.player.glassMemoryDiscountAvailable;
-    const acted = castSpell(spell);
+    const spellActed = castSpell(spell);
+    const secretOpened = tryOpenSecretEntranceWithSpell(spell);
+    const acted = spellActed || secretOpened;
     if (acted) {
       state.player.nextSpellDamageBonus = 0;
-      applyArtifactAfterSpellCast(spell);
-      if (shouldEchoFirstSpell && state.mode === MODES.PLAYING) {
+      if (spellActed) {
+        applyArtifactAfterSpellCast(spell);
+      }
+      if (spellActed && shouldEchoFirstSpell && state.mode === MODES.PLAYING) {
         addLog(flags.firstSpellEchoMessage || "Первое заклинание этажа повторяется.");
         const echoed = castSpell(spell);
         if (echoed) {
@@ -4424,6 +4929,7 @@
     }
     state.turn += 1;
     updateVision();
+    checkSecretEntranceProximity();
     tickHazardsAndStatuses();
     if (enemyPhase && state.mode === MODES.PLAYING) {
       actEnemies();
@@ -5130,13 +5636,40 @@
       } else if (object.type === EVENT_TYPES.EVENT_ROOM) {
         const definition = eventDefinition(object);
         drawGlyph(cx, cy, definition?.mapLabel || "?", CONFIG.colors.eventRoom, 17);
+      } else if (object.type === EVENT_TYPES.SECRET_ENTRANCE) {
+        if (object.opened) {
+          drawGlyph(cx, cy, "·", CONFIG.colors.secretRoom, 18);
+        } else {
+          const hintStrong = object.discovered || state.player?.revealsSecrets;
+          ctx.strokeStyle = hintStrong ? CONFIG.colors.secretRoom : "rgba(158, 231, 255, 0.42)";
+          ctx.lineWidth = hintStrong && visible ? 2 : 1;
+          ctx.beginPath();
+          ctx.moveTo(object.x * size + 7, object.y * size + 5);
+          ctx.lineTo(object.x * size + 11, object.y * size + 10);
+          ctx.lineTo(object.x * size + 9, object.y * size + 15);
+          ctx.lineTo(object.x * size + 14, object.y * size + 19);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+          if (hintStrong) {
+            drawGlyph(cx + 4, cy - 2, "∴", CONFIG.colors.secretRoom, 10);
+          }
+        }
+      } else if (object.type === EVENT_TYPES.SECRET_ALTAR) {
+        drawGlyph(cx, cy, object.used ? "◇" : "◆", object.used ? "#6b7f8c" : CONFIG.colors.secretRoom, 16);
       }
       ctx.globalAlpha = 1;
 
       if (
         visible &&
         state.player?.revealsSecrets &&
-        [EVENT_TYPES.BOOK, EVENT_TYPES.CHEST, EVENT_TYPES.ARTIFACT, EVENT_TYPES.EVENT_ROOM].includes(object.type) &&
+        [
+          EVENT_TYPES.BOOK,
+          EVENT_TYPES.CHEST,
+          EVENT_TYPES.ARTIFACT,
+          EVENT_TYPES.EVENT_ROOM,
+          EVENT_TYPES.SECRET_ENTRANCE,
+          EVENT_TYPES.SECRET_ALTAR,
+        ].includes(object.type) &&
         distance(object, state.player) <= 7
       ) {
         ctx.strokeStyle = "#fff2a8";
@@ -5302,10 +5835,18 @@
       const evolution = spellEvolution(spellId);
       const evolutions = evolutionOptions(spellId);
       const awaitingEvolution = state.evolutionChoiceSpellId === spellId;
-      const canUpgrade = Boolean(upgrade && state.player.magicShards >= upgrade.cost);
+      const upgradeShardCost = upgrade ? upgradeCost(upgrade) : 0;
+      const evolutionShardCost = currentEvolutionCost();
+      const upgradeDiscountText = upgrade && upgradeShardCost < upgrade.cost
+        ? ` (Ключ: -${upgrade.cost - upgradeShardCost})`
+        : "";
+      const evolutionDiscountText = evolutionShardCost < EVOLUTION_COST
+        ? ` (Ключ: -${EVOLUTION_COST - evolutionShardCost})`
+        : "";
+      const canUpgrade = Boolean(upgrade && state.player.magicShards >= upgradeShardCost);
       const canEvolve = canEvolveSpell(spellId);
       const upgradeInfo = upgrade
-        ? `До ур. ${level + 1}: ${upgrade.cost} осколок - ${upgrade.text}`
+        ? `До ур. ${level + 1}: ${upgradeShardCost} осколок${upgradeDiscountText} - ${upgrade.text}`
         : evolution
           ? "Эволюция выбрана."
           : "Уровень 3 открыт для эволюции.";
@@ -5315,7 +5856,7 @@
           ? `<div class="spell-evolution">
               <div><strong>1. ${evolutions[0].name}</strong> - ${evolutions[0].description}</div>
               <div><strong>2. ${evolutions[1].name}</strong> - ${evolutions[1].description}</div>
-              <span>Стоимость: ${EVOLUTION_COST} осколок</span>
+              <span>Стоимость: ${evolutionShardCost} осколок${evolutionDiscountText}</span>
             </div>`
           : "";
       const statusText = upgrade
@@ -5329,7 +5870,7 @@
               ? awaitingEvolution
                 ? "1/2 - выбрать ветку, 3 - отмена"
                 : state.upgradeMode ? `Нажмите ${index + 1}, чтобы выбрать эволюцию` : "Можно эволюционировать"
-              : `Нужен ${EVOLUTION_COST} осколок для эволюции`
+              : `Нужен ${evolutionShardCost} осколок для эволюции`
             : "Максимальный уровень";
       const statusClass = evolution
         ? "is-evolved"
@@ -5450,11 +5991,24 @@
           const definition = eventDefinition(object);
           return definition ? `${definition.name}: ${definition.description}` : "Комната-событие";
         }
+        if (object.type === EVENT_TYPES.SECRET_ENTRANCE) {
+          return object.opened
+            ? "Открытый тайный проход"
+            : "Подозрительная стена: трещина складывается в слабую руну";
+        }
+        if (object.type === EVENT_TYPES.SECRET_ALTAR) {
+          return object.used
+            ? "Погасший забытый алтарь архимага"
+            : "Забытый алтарь архимага: можно выбрать одну редкую награду";
+        }
         return "Неизвестный объект";
       });
+    const secretHint = nearbySecretEntrance()
+      ? "Где-то рядом камень звучит пусто. Присмотритесь к стенам."
+      : "";
     dom.nearbyText.textContent = nearbyObjects.length
       ? `${nearbyObjects.join(". ")}. Нажмите E.`
-      : "Рядом пока ничего нет.";
+      : secretHint || "Рядом пока ничего нет.";
   }
 
   function updateLog() {
@@ -5513,10 +6067,35 @@
     });
   }
 
+  function renderSecretRewardChoices() {
+    if (!dom.bossRelicChoice) {
+      return;
+    }
+    dom.bossRelicChoice.innerHTML = "";
+    state.pendingSecretRewardChoices.forEach((choice, index) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = [
+        "relic-choice-card",
+        "secret-choice-card",
+        choice.rarity === "secret" ? "is-secret" : "",
+      ].filter(Boolean).join(" ");
+      card.innerHTML = `
+        <span class="relic-choice-hotkey">${index + 1}</span>
+        <span class="relic-choice-rarity">${choice.rarity === "secret" ? "Секрет" : "Награда"}</span>
+        <strong>${choice.title}</strong>
+        <span class="relic-choice-effect">${choice.effect}</span>
+      `;
+      card.addEventListener("click", () => chooseSecretReward(index));
+      dom.bossRelicChoice.appendChild(card);
+    });
+  }
+
   function updateOverlay() {
     const isRelicChoice = state.mode === MODES.RELIC_CHOICE;
     const isEventChoice = state.mode === MODES.EVENT_CHOICE;
-    const isChoicePanel = isRelicChoice || isEventChoice;
+    const isSecretRewardChoice = state.mode === MODES.SECRET_REWARD_CHOICE;
+    const isChoicePanel = isRelicChoice || isEventChoice || isSecretRewardChoice;
     dom.overlay.classList.toggle("is-visible", state.mode !== MODES.PLAYING);
     dom.overlayContent?.classList.toggle("is-relic-choice", isChoicePanel);
     if (dom.bossRelicChoice) {
@@ -5544,6 +6123,11 @@
       dom.overlayTitle.textContent = definition?.name || "Комната-событие";
       dom.overlayText.textContent = definition?.description || "Башня предлагает выбор.";
       renderEventChoices();
+    } else if (isSecretRewardChoice) {
+      dom.overlayKicker.textContent = `Секрет · этаж ${state.floor}`;
+      dom.overlayTitle.textContent = "Забытый алтарь архимага";
+      dom.overlayText.textContent = "Древний алтарь предлагает одну редкую награду. После выбора его сила погаснет.";
+      renderSecretRewardChoices();
     } else if (state.mode === MODES.VICTORY) {
       dom.overlayKicker.textContent = "Победа";
       dom.overlayTitle.textContent = "Башня спасена";
