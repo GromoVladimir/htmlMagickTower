@@ -1053,6 +1053,92 @@
       minion: true,
       weakTo: ["ice", "shadow"],
     },
+    towerCultist: {
+      name: "Культист башни",
+      glyph: "C",
+      color: "#b46bff",
+      hp: 5,
+      damage: 1,
+      damageScaleEvery: 4,
+      speed: 2,
+      range: 4,
+      ranged: true,
+      markCooldown: 4,
+      markChance: 0.6,
+      weakTo: ["light", "shadow"],
+      attackText: "Культист башни посылает слабый темный разряд.",
+    },
+    gargoyle: {
+      name: "Гаргулья",
+      glyph: "G",
+      color: "#8f9aa8",
+      hp: 8,
+      damage: 2,
+      damageScaleEvery: 5,
+      speed: 3,
+      range: 1,
+      knockbackResistance: 1,
+      weakTo: ["lightning", "light"],
+      attackText: "Гаргулья тяжело бьет каменным крылом.",
+    },
+    manaLeech: {
+      name: "Магическая пиявка",
+      glyph: "l",
+      color: "#64e6db",
+      hp: 3,
+      damage: 1,
+      damageScaleEvery: 6,
+      speed: 1,
+      range: 1,
+      manaBurn: 1,
+      weakTo: ["fire", "light"],
+      attackText: "Магическая пиявка впивается в защиту мага.",
+    },
+    astralGuard: {
+      name: "Астральный страж",
+      glyph: "A",
+      color: "#70d6ff",
+      hp: 6,
+      damage: 2,
+      damageScaleEvery: 6,
+      speed: 1,
+      range: 1,
+      dashCooldown: 4,
+      dashChance: 0.75,
+      dashRange: 7,
+      postDashDelay: 1,
+      weakTo: ["shadow", "arcane"],
+      attackText: "Астральный страж рассекает воздух мерцающим клинком.",
+    },
+    crystalKnight: {
+      name: "Кристальный рыцарь",
+      glyph: "K",
+      color: "#9bdcff",
+      hp: 7,
+      damage: 2,
+      damageScaleEvery: 5,
+      speed: 2,
+      range: 1,
+      crystalShield: true,
+      weakTo: ["lightning", "earth"],
+      attackText: "Кристальный рыцарь наносит выверенный удар.",
+    },
+    voidWitch: {
+      name: "Пустотная ведьма",
+      glyph: "W",
+      color: "#d65cff",
+      hp: 6,
+      damage: 1,
+      damageScaleEvery: 5,
+      speed: 2,
+      range: 5,
+      ranged: true,
+      hazardCooldown: 4,
+      hazardTurns: 3,
+      maxSourceHazards: 2,
+      weakTo: ["light", "arcane"],
+      attackText: "Пустотная ведьма тянет боль через трещину в воздухе.",
+    },
     boss: {
       name: "Каменный архиголем",
       glyph: "A",
@@ -1126,21 +1212,21 @@
       id: "stoneThreshold",
       name: "Каменный порог",
       floorRange: [1, 5],
-      enemyPool: "tower",
+      enemyPool: "stoneThreshold",
       artifactPool: "stoneThreshold",
     },
     {
       id: "mirrorHalls",
       name: "Зеркальные залы",
       floorRange: [6, 10],
-      enemyPool: "tower",
+      enemyPool: "mirrorHalls",
       artifactPool: "mirrorHalls",
     },
     {
       id: "towerHeart",
       name: "Сердце башни",
       floorRange: [11, 15],
-      enemyPool: "tower",
+      enemyPool: "towerHeart",
       artifactPool: "towerHeart",
     },
   ];
@@ -1400,11 +1486,37 @@
   };
 
   const ENEMY_POOLS_BY_ACT = {
-    tower: {
-      default: ["rat", "skeleton", "livingBook"],
+    stoneThreshold: {
+      default: ["rat", "rat", "skeleton", "livingBook", "smallGolem"],
       byFloor: {
         1: ["rat", "rat", "skeleton"],
       },
+    },
+    mirrorHalls: {
+      default: [
+        "rat",
+        "skeleton",
+        "livingBook",
+        "smallGolem",
+        "towerCultist",
+        "towerCultist",
+        "gargoyle",
+        "manaLeech",
+        "manaLeech",
+      ],
+    },
+    towerHeart: {
+      default: [
+        "towerCultist",
+        "gargoyle",
+        "manaLeech",
+        "astralGuard",
+        "astralGuard",
+        "crystalKnight",
+        "crystalKnight",
+        "voidWitch",
+        "voidWitch",
+      ],
     },
   };
 
@@ -1934,6 +2046,8 @@
       spellsCastThisFloor: 0,
       lastSpellElement: null,
       nextSpellDamageBonus: 0,
+      damageMarkBonus: 0,
+      damageMarkSource: "",
       artifacts: [],
       trait: null,
     };
@@ -1989,6 +2103,8 @@
     state.player.floorBlockAvailable = state.player.blocksFirstHit;
     state.player.freeSpellAvailable = state.player.freeFirstSpell;
     state.player.spellsCastThisFloor = 0;
+    state.player.damageMarkBonus = 0;
+    state.player.damageMarkSource = "";
     state.player.artifactKillManaAvailable = true;
     refreshArtifactFlags();
     state.player.relicFirstDamageReductionAvailable = artifactFlags().firstDamageReduction > 0;
@@ -2282,8 +2398,9 @@
     const template = ENEMY_TYPES[type];
     const fixedPower = template.boss || template.summoned || template.illusion || template.object;
     const scale = fixedPower ? 0 : Math.max(0, floor - 1);
+    const damageScaleEvery = Math.max(1, template.damageScaleEvery || 2);
     const hp = overrides.hp ?? template.hp + scale;
-    const damage = overrides.damage ?? template.damage + Math.floor(scale / 2);
+    const damage = overrides.damage ?? template.damage + Math.floor(scale / damageScaleEvery);
     return {
       id: nextId(),
       type,
@@ -2314,6 +2431,22 @@
       defeatText: template.defeatText || "",
       weakTo: template.weakTo || [],
       tags: template.tags || [],
+      knockbackResistance: template.knockbackResistance || 0,
+      manaBurn: template.manaBurn || 0,
+      markCooldown: template.markCooldown || 0,
+      markCooldownLeft: template.markCooldown ? randomInt(1, template.markCooldown) : 0,
+      markChance: template.markChance || 0,
+      dashCooldown: template.dashCooldown || 0,
+      dashCooldownLeft: template.dashCooldown ? randomInt(1, template.dashCooldown) : 0,
+      dashChance: template.dashChance || 0,
+      dashRange: template.dashRange || 0,
+      postDashDelay: template.postDashDelay || 0,
+      postDashDelayLeft: 0,
+      crystalShieldActive: Boolean(template.crystalShield),
+      hazardCooldown: template.hazardCooldown || 0,
+      hazardCooldownLeft: template.hazardCooldown ? randomInt(1, template.hazardCooldown) : 0,
+      hazardTurns: template.hazardTurns || 0,
+      maxSourceHazards: template.maxSourceHazards || 0,
       slow: 0,
       stun: 0,
       burn: 0,
@@ -3565,6 +3698,12 @@
   }
 
   function damageEnemy(enemy, amount, source, element = null) {
+    if (enemy.crystalShieldActive && amount > 0) {
+      enemy.crystalShieldActive = false;
+      addLog(`Кристальный щит ${enemy.name} принимает удар и раскалывается.`);
+      addEffect(enemy.x, enemy.y, ELEMENT_COLORS.ice, 8, "щит");
+      return false;
+    }
     const resistedAmount = adjustEnemyDamage(enemy, amount, element);
     const finalAmount = applyDamageVulnerabilities(enemy, resistedAmount);
     enemy.hp -= finalAmount;
@@ -3674,6 +3813,13 @@
       if (reduced > 0) {
         addLog(`Гранитный панцирь снижает урон на ${reduced}.`);
       }
+    }
+    if (remaining > 0 && state.player.damageMarkBonus > 0) {
+      const markBonus = state.player.damageMarkBonus;
+      remaining += markBonus;
+      state.player.damageMarkBonus = 0;
+      state.player.damageMarkSource = "";
+      addLog(`Метка культиста вспыхивает: урон увеличен на ${markBonus}.`);
     }
     if (state.player.shield > 0) {
       const blocked = Math.min(state.player.shield, remaining);
@@ -3855,6 +4001,18 @@
     enemies.forEach(handleEnemyTurn);
   }
 
+  function tickEnemyAbilityCooldowns(enemy) {
+    if (enemy.markCooldownLeft > 0) {
+      enemy.markCooldownLeft -= 1;
+    }
+    if (enemy.dashCooldownLeft > 0) {
+      enemy.dashCooldownLeft -= 1;
+    }
+    if (enemy.hazardCooldownLeft > 0) {
+      enemy.hazardCooldownLeft -= 1;
+    }
+  }
+
   function handleEnemyTurn(enemy) {
     if (!state.enemies.includes(enemy) || state.mode !== MODES.PLAYING) {
       return;
@@ -3872,6 +4030,13 @@
       return;
     }
 
+    tickEnemyAbilityCooldowns(enemy);
+    if (enemy.postDashDelayLeft > 0) {
+      enemy.postDashDelayLeft -= 1;
+      addEffect(enemy.x, enemy.y, ELEMENT_COLORS.arcane, 5, "...");
+      return;
+    }
+
     if (enemy.object) {
       actBossObject(enemy);
       return;
@@ -3881,12 +4046,131 @@
       actBoss(enemy);
     }
 
+    if (tryEnemySpecialAction(enemy)) {
+      return;
+    }
+
     const dist = distance(enemy, state.player);
     if (dist <= enemy.range && hasLineOfSight(enemy, state.player, enemy.range)) {
-      damagePlayer(enemyAttackDamage(enemy), enemyAttackText(enemy), enemy);
+      performEnemyAttack(enemy);
       return;
     }
     moveEnemyTowardPlayer(enemy);
+  }
+
+  function tryEnemySpecialAction(enemy) {
+    if (enemy.type === "towerCultist") {
+      return tryCultistMark(enemy);
+    }
+    if (enemy.type === "astralGuard") {
+      return tryAstralDash(enemy);
+    }
+    if (enemy.type === "voidWitch") {
+      return tryVoidWitchHazard(enemy);
+    }
+    return false;
+  }
+
+  function tryCultistMark(enemy) {
+    if (
+      enemy.markCooldownLeft > 0 ||
+      state.player.damageMarkBonus > 0 ||
+      distance(enemy, state.player) > enemy.range ||
+      !hasLineOfSight(enemy, state.player, enemy.range) ||
+      Math.random() > enemy.markChance
+    ) {
+      return false;
+    }
+
+    state.player.damageMarkBonus = 1;
+    state.player.damageMarkSource = enemy.name;
+    enemy.markCooldownLeft = enemy.markCooldown;
+    addLog("Культист башни ставит метку: следующий полученный урон увеличится на 1.");
+    addEffect(state.player.x, state.player.y, ELEMENT_COLORS.shadow, 8, "метка");
+    return true;
+  }
+
+  function tryAstralDash(enemy) {
+    const dist = distance(enemy, state.player);
+    if (
+      enemy.dashCooldownLeft > 0 ||
+      dist <= 2 ||
+      dist > enemy.dashRange ||
+      Math.random() > enemy.dashChance
+    ) {
+      return false;
+    }
+
+    const candidates = cellsWithinDistance(state.player, 2)
+      .filter((cell) =>
+        distance(cell, state.player) === 2 &&
+        distance(cell, enemy) < dist &&
+        isFreeCell(cell.x, cell.y) &&
+        !wouldLeavePlayerEscape(cell, enemy)
+      )
+      .sort((a, b) => distance(a, enemy) - distance(b, enemy));
+    if (!candidates.length) {
+      return false;
+    }
+
+    const spot = sample(candidates.slice(0, Math.min(4, candidates.length)));
+    addEffect(enemy.x, enemy.y, ELEMENT_COLORS.arcane, 8, "рыв");
+    enemy.x = spot.x;
+    enemy.y = spot.y;
+    enemy.dashCooldownLeft = enemy.dashCooldown;
+    enemy.postDashDelayLeft = enemy.postDashDelay;
+    addEffect(enemy.x, enemy.y, ELEMENT_COLORS.arcane, 8, "рыв");
+    addLog("Астральный страж делает рывок сквозь пространство и замирает на миг.");
+    return true;
+  }
+
+  function tryVoidWitchHazard(enemy) {
+    if (
+      enemy.hazardCooldownLeft > 0 ||
+      distance(enemy, state.player) > enemy.range ||
+      !hasLineOfSight(enemy, state.player, enemy.range)
+    ) {
+      return false;
+    }
+
+    const activeWitchHazards = state.hazards.filter((hazard) =>
+      hazard.type === "danger" &&
+      hazard.sourceType === "voidWitch"
+    );
+    if (activeWitchHazards.length >= enemy.maxSourceHazards) {
+      return false;
+    }
+
+    const candidates = getAdjacentCells(state.player.x, state.player.y)
+      .filter((cell) =>
+        isWalkable(cell.x, cell.y) &&
+        !barrierAt(cell.x, cell.y) &&
+        !enemyAt(cell.x, cell.y) &&
+        !state.hazards.some((hazard) =>
+          hazard.type === "danger" &&
+          hazard.x === cell.x &&
+          hazard.y === cell.y
+        )
+      );
+    if (!candidates.length) {
+      return false;
+    }
+
+    const spot = sample(candidates);
+    state.hazards.push({
+      id: nextId(),
+      type: "danger",
+      sourceType: "voidWitch",
+      x: spot.x,
+      y: spot.y,
+      radius: 0,
+      turns: enemy.hazardTurns,
+      summonerId: enemy.id,
+    });
+    enemy.hazardCooldownLeft = enemy.hazardCooldown;
+    addEffect(spot.x, spot.y, ELEMENT_COLORS.shadow, 8, "пуст");
+    addLog("Пустотная ведьма открывает опасную клетку рядом с магом.");
+    return true;
   }
 
   function actBoss(enemy) {
@@ -4066,6 +4350,16 @@
     return enemy.ranged ? `${enemy.name} швыряет проклятую страницу.` : `${enemy.name} атакует.`;
   }
 
+  function performEnemyAttack(enemy) {
+    if (enemy.manaBurn > 0 && state.player.mana > 0) {
+      const burned = Math.min(enemy.manaBurn, state.player.mana);
+      state.player.mana -= burned;
+      addLog(`${enemy.name} сжигает ${burned} ману.`);
+      addEffect(state.player.x, state.player.y, ELEMENT_COLORS.arcane, 7, `-${burned}м`);
+    }
+    damagePlayer(enemyAttackDamage(enemy), enemyAttackText(enemy), enemy);
+  }
+
   function enemyAttackDamage(enemy) {
     let amount = enemy.damage + (enemy.nextAttackBonus || 0);
     if (
@@ -4155,10 +4449,14 @@
   }
 
   function pushEnemy(enemy, steps) {
+    const actualSteps = Math.max(0, steps - (enemy.knockbackResistance || 0));
+    if (actualSteps <= 0) {
+      return { moved: false, blocked: false };
+    }
     const dx = Math.sign(enemy.x - state.player.x);
     const dy = Math.sign(enemy.y - state.player.y);
     let moved = false;
-    for (let i = 0; i < steps; i += 1) {
+    for (let i = 0; i < actualSteps; i += 1) {
       const next = { x: enemy.x + dx, y: enemy.y + dy };
       if (!isFreeCell(next.x, next.y)) {
         return { moved, blocked: true };
@@ -4338,6 +4636,12 @@
         ctx.arc(cx, cy, size * 0.34, 0, Math.PI * 2);
         ctx.fill();
         drawGlyph(cx, cy + 1, enemy.glyph, "#12151b", 13);
+      }
+      if (enemy.crystalShieldActive) {
+        ctx.strokeStyle = "#e8fbff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(enemy.x * size + 4, enemy.y * size + 4, size - 8, size - 8);
+        ctx.lineWidth = 1;
       }
       ctx.globalAlpha = 1;
       const barWidth = size - 4;
