@@ -11,7 +11,7 @@
     manaRegenEvery: 4,
     eventRoomChance: 0.35,
     secretRoom: {
-      runChance: 0.55,
+      floorChance: 0.75,
       floorRange: [6, 12],
       excludedFloors: [5, 10, 15],
       hintRadius: 6,
@@ -1747,7 +1747,6 @@
     pendingEvent: null,
     pendingSecretRewardChoices: [],
     pendingSecretAltarId: null,
-    secretRoomFloor: null,
     secretRoomDiscovered: false,
     secretRoomOpened: false,
     secretRewardClaimed: false,
@@ -2225,6 +2224,13 @@
     addLog("После победы над стражем открывается переход выше.");
   }
 
+  function clearBossExitCell(exit) {
+    const isExitCell = (item) => item.x === exit.x && item.y === exit.y;
+    state.objects = state.objects.filter((object) => !isExitCell(object));
+    state.hazards = state.hazards.filter((hazard) => !isExitCell(hazard));
+    state.barriers = state.barriers.filter((barrier) => !isExitCell(barrier));
+  }
+
   function openBossRelicChoice(floor, exit) {
     const choices = chooseBossRelicOptions(floor);
     if (!choices.length) {
@@ -2312,21 +2318,6 @@
     };
   }
 
-  function chooseSecretRoomFloor() {
-    const settings = CONFIG.secretRoom;
-    if (Math.random() >= settings.runChance) {
-      return null;
-    }
-
-    const candidates = [];
-    for (let floor = settings.floorRange[0]; floor <= settings.floorRange[1]; floor += 1) {
-      if (!settings.excludedFloors.includes(floor) && !BOSSES_BY_FLOOR[floor]) {
-        candidates.push(floor);
-      }
-    }
-    return candidates.length ? sample(candidates) : null;
-  }
-
   function newGame() {
     state.floor = 1;
     state.turn = 0;
@@ -2350,7 +2341,6 @@
     state.pendingEvent = null;
     state.pendingSecretRewardChoices = [];
     state.pendingSecretAltarId = null;
-    state.secretRoomFloor = chooseSecretRoomFloor();
     state.secretRoomDiscovered = false;
     state.secretRoomOpened = false;
     state.secretRewardClaimed = false;
@@ -2380,6 +2370,10 @@
     state.pendingEvent = null;
     state.pendingSecretRewardChoices = [];
     state.pendingSecretAltarId = null;
+    state.secretRoomDiscovered = false;
+    state.secretRoomOpened = false;
+    state.secretRewardClaimed = false;
+    state.secretEntranceId = null;
     state.activeChallenge = null;
     const floorData = generateFloor(floor);
     state.map = floorData.map;
@@ -2770,11 +2764,15 @@
   }
 
   function placeSecretRoom(floorData) {
+    const settings = CONFIG.secretRoom;
     if (
-      state.floor !== state.secretRoomFloor ||
       state.secretEntranceId ||
       state.secretRewardClaimed ||
-      BOSSES_BY_FLOOR[state.floor]
+      BOSSES_BY_FLOOR[state.floor] ||
+      state.floor < settings.floorRange[0] ||
+      state.floor > settings.floorRange[1] ||
+      settings.excludedFloors.includes(state.floor) ||
+      Math.random() >= settings.floorChance
     ) {
       return;
     }
@@ -4822,6 +4820,7 @@
 
   function handleBossDefeat(enemy) {
     clearBossSummons(enemy);
+    clearBossExitCell(enemy);
     grantBossMagicShardReward(state.floor);
     if (state.floor >= CONFIG.maxFloors) {
       addLog("Сердце башни разбито. Башня спасена.");
